@@ -14,17 +14,10 @@ As requested in the Lokta Challenge brief, the required deliverables are located
 
 *   **Pure SPA (Vite + React + TypeScript):** All logic runs in the browser. Financial data never touches a server.
 *   **Separation of Concerns:** The UI (`src/App.tsx`) is strictly separated from the domain logic (`src/rules.ts`).
-*   **Live Modifications:** If asked to "change a rule" during a live review, open `src/rules.ts`. All LTV caps, FOIR caps, haircuts, and rate bands are defined as named constants at the top of the file for instant modification.
 
 ## Getting Started
 
 ```bash
 npm install
 npm run dev
-```
-
-## Running the Automated Test Suite
-To verify the engine mathematically without clicking through the UI:
-```bash
-npx tsx test-suite.ts
 ```
