@@ -1,24 +1,34 @@
-# Five-Minute Walkthrough (Interview Pitch)
+# The 5-Minute Interview Script
 
-*(Use this script to guide the interviewers through the application architecture and philosophy).*
+**Goal:** Explain the architecture of Borrower Copilot, specifically highlighting how it acts as a fiduciary advocate rather than a lead-gen tool.
 
-## 1. The Core Philosophy (1 min)
-"Standard loan calculators are built for banks. They ask for your gross income, multiply it by 50%, and tell you what the bank will legally lend you. They don't care if you have to starve to make the EMI. 
+## 1. The Core Architecture (1 min)
 
-Borrower Copilot is built for the borrower. It asks the hard questions—like actual living expenses and income volatility—and separates what the bank will **sanction** from what the borrower can **safely carry**."
+"Borrower Copilot is a client-side React application built specifically for the Indian credit market. It's totally private—no data is sent to a server. 
 
-## 2. The Architecture & Privacy (1 min)
-"Because financial data is deeply sensitive, I built this as a pure client-side React SPA. There is no backend. There is no database. 
+The engine uses a deterministic 100-point scoring system. However, its real value is in the 'Dual Ceiling Architecture.' Lead-generation sites calculate a single number (FOIR) to figure out what a bank will legally sell you. The Copilot calculates two numbers:
+1. What the bank will sanction you (FOIR).
+2. What you can actually survive (Cashflow minus expenses, existing debt, and an absolute minimum living floor buffer)."
 
-I rigorously separated the UI (`App.tsx`) from the domain logic (`rules.ts`). The UI is just a dumb wizard; the `rules.ts` file is a deterministic 100-point risk engine. This ensures the underwriting logic is 100% unit-testable and explainable. No LLM hallucinations, just documented math."
+## 2. The Stress Test & Silence Widening (2 min)
 
-## 3. Graceful Degradation & "Silence Widens" (1.5 min)
-"In the real world, borrowers don't know all their numbers. If they don't know their CIBIL score or skip their ITR, a standard app crashes. 
+"The app doesn't just calculate your limit under sunny-day conditions. 
 
-I implemented a principle called **'Confidence widens with silence'**. If a user skips entering their Existing EMIs, the math assumes zero, but the engine adds a massive penalty to the `wideningFactor`. The output ranges stretch (e.g., showing ₹5L - ₹12L instead of a precise ₹8L), and the UI generates a Consequence Card explicitly telling the user: *'Because you hid your existing debt, this estimate is dangerously wide.'* It forces honesty without breaking the flow."
+If you say you want ₹5 Lakhs, it runs a macroeconomic stress test. It drops your income by 10% and spikes the interest rate by 2%. If that resulting EMI breaches your living buffer, the app tells you to 'Borrow Less.'
 
-## 4. The Rules Engine in Action (1.5 min)
-"The engine does three advanced things behind the scenes:
-1.  **Product Routing:** It asks what loan you *want*, but routes you to what you *should get*. If you ask for an unsecured loan but list ₹50L in collateral, it overrides you and routes you to LAP (Loan Against Property) to save you 8% in interest.
-2.  **Age/Tenure Capping:** It checks your age. If you are 58 and ask for a 10-year loan, it mathematically caps your tenure to 7 years to ensure you pay it off by the retirement age of 65.
-3.  **Binding Stress Test:** It mathematically drops your income by 10% and spikes the rate by 2%. If the proposed loan causes you to breach your absolute basic living buffer (₹8,000) under that stress, the app downgrades your verdict to 'Borrow Less'."
+More importantly, it handles **silence**. If a user like Ravi leaves his existing EMIs blank, standard calculators just assume `0` and tell him he can afford a massive loan. The Copilot assumes `0`, but aggressively widens the safety output band by 20% and fires a warning card saying, *'We assumed zero debt because you didn't tell us, but if you have it, this number is dangerously wrong.'* Confidence widens with silence."
+
+## 3. Product Judgments & The Fiduciary Approach (2 min)
+
+"A true financial advocate educates, it doesn't force. 
+
+For example, if you declare that you own unencumbered property, the Copilot asks you: *'Are you willing to pledge this property as collateral to lower your rate?'* 
+* If you say yes, it routes you to a Loan Against Property (LAP) at ~9%. 
+* If you say no, it routes you to an unsecured loan at ~14%, but adds a 'Smart Nudge' to the log saying, *'You kept your home safe, but you are overpaying by 5%.'* 
+This educates the borrower on their leverage without forcing them to risk foreclosure for a slightly cheaper loan.
+
+Similarly, we protect stable co-applicants. If Ravi is a volatile gig worker but his wife is a salaried teacher, we only apply the volatility haircut to his income. We preserve 100% of her salary, accurately reflecting the household's actual risk profile."
+
+## 4. The Live Demo Handover
+
+"All mathematical variables—LTV caps, FOIR limits, haircuts, and rate bands—are declared as named constants at the top of `src/rules.ts`. If you want to see what happens when the RBI tightens FOIR from 50% to 40%, we can change one line of code right now and watch the engine adapt instantly."

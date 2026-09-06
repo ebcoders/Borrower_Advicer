@@ -1,5 +1,5 @@
 export const PRODUCTIVE_PURPOSES = new Set(["business", "vehicle_for_income", "education", "medical", "home_improvement"]);
-export const RISKY_PURPOSES = new Set(["gambling", "speculative"]);
+export const RISKY_PURPOSES = new Set(["gambling", "speculative", "wedding"]);
 
 // LTV, FOIR & Smoothing Constants
 export const LAP_LTV_CAP = 0.60;
@@ -13,6 +13,9 @@ export const MAX_RETIREMENT_AGE = 65;
 
 export const RATE_BANDS: Record<string, [number, number]> = {
   lap: [9.0, 11.5],
+  home_loan: [8.5, 9.5],
+  two_wheeler: [12.0, 16.0],
+  gold_loan: [10.0, 14.0],
   personal_prime: [10.5, 12.5],
   personal_standard: [13.0, 17.0],
   unsecured_business: [18.0, 24.0]
@@ -38,48 +41,60 @@ function roundTo(num: number, step: number) {
 
 export interface AssessmentAnswers {
   purpose: string;
-  loan_type_wanted: string; // New field
+  loan_type_wanted: string;
   amount_wanted: number;
+  quoted_rate: number | null; // NEW: To compare against fair rate
   tenure_months: number;
-  age: number | null; // New field
+  age: number | null;
   income_type: string;
   declared_income: number;
   co_applicant_income: number | null;
+  co_applicant_salaried: boolean; // NEW: Prevents illegal haircutting of stable spouse income
   variable_income_pct: number | null; 
   years_in_income: number | null; 
   itr_income: number | null;
   expenses: number | null;
-  existing_emi: number | null; // Changed to nullable
+  existing_emi: number | null; 
+  has_predatory_loans: boolean; // NEW: Captures Anita's 30%+ app loan scenario
   credit_status: 'known' | 'unknown' | 'ntc';
   credit_score: number | null;
   missed_payments: boolean;
   savings_months: number | null;
   owns_property: boolean;
+  pledge_property: boolean; // NEW: Consent-based routing
   property_value: number | null;
 }
 
 function assessIncome(answers: AssessmentAnswers, consequences: string[]) {
-  const totalDeclared = answers.declared_income + (answers.co_applicant_income || 0);
-  let assessedIncome = totalDeclared;
+  // FIX: Co-applicant logic separates salaried from informal
+  const primaryDeclared = answers.declared_income;
+  const coApplicantDeclared = answers.co_applicant_income || 0;
+  
+  let primaryAssessed = primaryDeclared;
+  let coApplicantAssessed = coApplicantDeclared;
   let missingItr = false;
   
   if (answers.income_type !== 'salaried') {
-    // FIX: Cap the variable income haircut at 50% max, avoiding 100% erasure
     const haircutPct = answers.variable_income_pct !== null ? Math.min(0.50, answers.variable_income_pct / 100) : 0.30;
     
     if (answers.itr_income) {
-      assessedIncome = Math.max(totalDeclared * (1 - haircutPct), answers.itr_income / 12);
+      primaryAssessed = Math.max(primaryDeclared * (1 - haircutPct), answers.itr_income / 12);
     } else {
-      assessedIncome = totalDeclared * (1 - haircutPct);
+      primaryAssessed = primaryDeclared * (1 - haircutPct);
       missingItr = true;
-      consequences.push(`Because you didn't provide an ITR, we discounted your income by ${Math.round(haircutPct*100)}% based on your stated irregular income. Providing an ITR increases your eligible amount.`);
+      consequences.push(`Because you didn't provide an ITR, we discounted your primary income by ${Math.round(haircutPct*100)}% based on your stated irregular income.`);
     }
   }
-  
-  if (answers.co_applicant_income) {
-    consequences.push("Including a co-applicant's income increased your total eligible safe capacity.");
+
+  // If co-applicant is not salaried, apply a flat conservative 30% haircut to their income
+  if (coApplicantDeclared > 0 && !answers.co_applicant_salaried) {
+    coApplicantAssessed = coApplicantDeclared * 0.70;
+    consequences.push("Your co-applicant's informal income was discounted by 30% for safety.");
+  } else if (coApplicantDeclared > 0) {
+    consequences.push("Your co-applicant's stable salaried income fully increased your eligible capacity.");
   }
 
+  const assessedIncome = primaryAssessed + coApplicantAssessed;
   return { assessedIncome, missingItr };
 }
 
@@ -88,6 +103,12 @@ function computeScore(answers: AssessmentAnswers, assessedIncome: number, conseq
   
   if (answers.missed_payments) score -= 50; 
   else score += 20;
+
+  // NEW: Predatory loan penalty
+  if (answers.has_predatory_loans) {
+    score -= 30;
+    consequences.push("Existing high-interest (30%+) app loans are a severe red flag indicating a debt trap.");
+  }
   
   if (answers.income_type === 'salaried') score += 15;
   
@@ -96,11 +117,10 @@ function computeScore(answers: AssessmentAnswers, assessedIncome: number, conseq
     else if (answers.years_in_income < 2) score -= 10;
   }
 
-  // FIX: Linear interpolation for Savings
   if (answers.savings_months !== null) {
     if (answers.savings_months === 0) score -= 10;
-    else if (answers.savings_months <= 3) score += (-10 + (20 * (answers.savings_months / 3))); // 0 to 3 mo scales -10 to +10
-    else score += (10 + (5 * Math.min(1, (answers.savings_months - 3) / 3))); // 3 to 6 mo scales +10 to +15
+    else if (answers.savings_months <= 3) score += (-10 + (20 * (answers.savings_months / 3)));
+    else score += (10 + (5 * Math.min(1, (answers.savings_months - 3) / 3)));
   } else {
     consequences.push("We don't know your emergency savings, so we couldn't give you the 'Safety Net' rate discount.");
   }
@@ -108,13 +128,13 @@ function computeScore(answers: AssessmentAnswers, assessedIncome: number, conseq
   if (PRODUCTIVE_PURPOSES.has(answers.purpose)) score += 10;
   if (RISKY_PURPOSES.has(answers.purpose)) score -= 20;
 
-  // FIX: Linear interpolation for DTI
   const existingEmi = answers.existing_emi || 0;
   const dti = assessedIncome > 0 ? existingEmi / assessedIncome : 1;
   if (dti <= 0.20) {
-    score += (10 * (1 - (dti / 0.20))); // 0 DTI = +10, 20% = 0
+    score += (10 * (1 - (dti / 0.20)));
   } else {
-    score += Math.max(-30, -20 * ((dti - 0.20) / 0.30)); // 20% = 0, 50% = -20
+    // FIX: Math now perfectly matches RULES.md (hitting -30 at 50% DTI)
+    score += Math.max(-30, -30 * ((dti - 0.20) / 0.30)); 
   }
 
   return Math.max(0, Math.min(100, score));
@@ -125,9 +145,13 @@ function determineRouting(answers: AssessmentAnswers, score: number, consequence
   let baseBand: [number, number] = [0, 0];
   let unknownScorePenalty = 0;
 
-  const isLapEligible = answers.owns_property && answers.property_value && answers.property_value > answers.amount_wanted * 1.5;
+  const isLapEligible = answers.owns_property && answers.pledge_property && answers.property_value && answers.property_value > answers.amount_wanted * 1.5;
 
-  if (isLapEligible) {
+  // Domain Gap Fix: Two wheeler routing
+  if (answers.purpose === 'vehicle_for_income') {
+    product = "Two-Wheeler / Commercial Vehicle";
+    baseBand = RATE_BANDS.two_wheeler;
+  } else if (isLapEligible) {
     product = "Loan Against Property (LAP)";
     baseBand = RATE_BANDS.lap;
   } else if (answers.income_type === 'salaried') {
@@ -155,8 +179,17 @@ function determineRouting(answers: AssessmentAnswers, score: number, consequence
     baseBand = RATE_BANDS.unsecured_business;
     if (answers.credit_status !== 'known') {
       unknownScorePenalty = 2.0;
-      consequences.push("Without a known credit score, unsecured business loans price for maximum risk.");
+      if (answers.credit_status === 'ntc') {
+         consequences.push("As an informal worker with no credit history, unsecured loans are priced for maximum risk.");
+      } else {
+         consequences.push("Without a known credit score, unsecured business loans price for maximum risk.");
+      }
     }
+  }
+
+  // Educational Nudge (Product Judgment Fix)
+  if (answers.owns_property && !answers.pledge_property && product !== "Two-Wheeler / Commercial Vehicle") {
+    consequences.push(`💡 Tip: You chose not to pledge your property. That keeps your home safe, but you are getting ${product} rates. Pledging it as collateral could lower your rate to ~10.5%.`);
   }
 
   const [minRate, maxRate] = baseBand;
@@ -173,7 +206,7 @@ function determineRouting(answers: AssessmentAnswers, score: number, consequence
 export function runAssessment(answers: AssessmentAnswers) {
   const consequences: string[] = [];
   
-  // Age & Tenure Check (FIX)
+  // Age & Tenure Check
   let effectiveTenure = answers.tenure_months;
   if (answers.age) {
     const maxTenure = Math.max(12, (MAX_RETIREMENT_AGE - answers.age) * 12);
@@ -197,7 +230,7 @@ export function runAssessment(answers: AssessmentAnswers) {
     consequences.push("You skipped entering household expenses, so we assumed a conservative 40% of your income. This widens your estimate band.");
   }
 
-  // Existing EMI Silence Penalty (FIX)
+  // Existing EMI Silence Penalty
   let existingEmi = 0;
   let missingExistingEmi = false;
   if (answers.existing_emi !== null) {
@@ -273,7 +306,7 @@ export function runAssessment(answers: AssessmentAnswers) {
     reason = "You missed a payment in the last 3 months. Taking new debt to cover old debt almost always leads to a trap. Stay current for 3 months before borrowing.";
   } else if (score < 30) {
     verdict = "dont_borrow";
-    reason = "Your risk score is extremely high due to existing debt levels or loan purpose. A lender will likely reject this, or charge predatory rates.";
+    reason = "Your risk profile indicates you may struggle to repay this loan, likely due to existing debt levels, volatile income, or predatory app loans.";
   } else if (safeAvailableEmi <= 0 || safeStressedEmi <= 0) {
     verdict = "dont_borrow";
     reason = "After your living expenses, existing EMI, and a minimal safety buffer, there is no mathematical room for a new loan—especially if your income drops even slightly.";
@@ -295,6 +328,7 @@ export function runAssessment(answers: AssessmentAnswers) {
     product_route: product,
     product_requested: answers.loan_type_wanted,
     fair_rate_band: [finalRateMin, finalRateMax],
+    quoted_rate: answers.quoted_rate, // Passthrough
     apr_band: [aprMin, aprMax],
     safe_carry_range: [Math.max(0, safeRangeMin), safeRangeMax],
     lender_sanction_range: [Math.max(0, lenderRangeMin), lenderRangeMax],
