@@ -1,6 +1,33 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { runAssessment, AssessmentAnswers } from './rules';
 import { ArrowRight, ArrowLeft, AlertTriangle, ShieldCheck, CheckCircle2, ChevronRight, Calculator, AlertCircle, FileText, Banknote } from 'lucide-react';
+
+function CurrencyInput({ value, onChange, className, placeholder }: { value: number | '', onChange: (val: number | '') => void, className?: string, placeholder?: string }) {
+  const displayValue = value === '' ? '' : value.toLocaleString('en-IN');
+  
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const rawValue = e.target.value.replace(/[^0-9]/g, '');
+    if (rawValue === '') {
+      onChange('');
+    } else {
+      onChange(Number(rawValue));
+    }
+  };
+
+  return (
+    <div className="relative">
+      <span className="absolute left-3 top-3 text-slate-500 font-medium">₹</span>
+      <input
+        type="text"
+        inputMode="numeric"
+        value={displayValue}
+        onChange={handleChange}
+        placeholder={placeholder}
+        className={`pl-8 ${className}`}
+      />
+    </div>
+  );
+}
 
 function App() {
   const [step, setStep] = useState(1);
@@ -28,9 +55,41 @@ function App() {
   const [pledgeProperty, setPledgeProperty] = useState(false);
   const [propertyValue, setPropertyValue] = useState<number | ''>('');
 
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (purpose === 'home_improvement') {
+      setTenureMonths(120);
+    } else if (purpose === 'vehicle_for_income') {
+      setTenureMonths(36);
+    } else {
+      setTenureMonths(60);
+    }
+  }, [purpose]);
+
   const [result, setResult] = useState<ReturnType<typeof runAssessment> | null>(null);
 
   const handleNext = () => {
+    setError('');
+    
+    if (step === 1) {
+      if (!amountWanted) {
+        setError("Please enter the loan amount you need.");
+        return;
+      }
+      if (!age) {
+        setError("Age is required to accurately calculate your safe borrowing limits and retirement risk.");
+        return;
+      }
+    }
+
+    if (step === 2) {
+      if (!declaredIncome) {
+        setError("Please enter your primary monthly income.");
+        return;
+      }
+    }
+
     if (step < 3) setStep(step + 1);
     else {
       const answers: AssessmentAnswers = {
@@ -79,6 +138,12 @@ function App() {
         <span className={step >= 3 ? 'text-indigo-600' : ''}>Profile</span>
         <span className={step >= 4 ? 'text-indigo-600' : ''}>Results</span>
       </div>
+      {error && (
+        <div className="mt-4 p-3 bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg flex items-start">
+          <AlertCircle className="w-4 h-4 mr-2 mt-0.5 flex-shrink-0" />
+          <p>{error}</p>
+        </div>
+      )}
     </div>
   );
 
@@ -112,7 +177,7 @@ function App() {
 
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-1">How much do you need? (₹)</label>
-          <input type="number" value={amountWanted} onChange={(e) => setAmountWanted(e.target.value === '' ? '' : Number(e.target.value))} className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 shadow-sm" />
+          <CurrencyInput value={amountWanted} onChange={setAmountWanted} className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 shadow-sm" />
         </div>
 
         <div>
@@ -127,7 +192,7 @@ function App() {
             <input type="number" value={tenureMonths} onChange={(e) => setTenureMonths(e.target.value === '' ? '' : Number(e.target.value))} className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 shadow-sm" />
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Your Age (Optional)</label>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Your Age</label>
             <input type="number" value={age} onChange={(e) => setAge(e.target.value === '' ? '' : Number(e.target.value))} className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 shadow-sm" placeholder="e.g. 35" />
           </div>
         </div>
@@ -150,12 +215,12 @@ function App() {
 
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-1">Your Monthly Income (₹)</label>
-          <input type="number" value={declaredIncome} onChange={(e) => setDeclaredIncome(e.target.value === '' ? '' : Number(e.target.value))} className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 shadow-sm" />
+          <CurrencyInput value={declaredIncome} onChange={setDeclaredIncome} className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 shadow-sm" />
         </div>
 
         <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg">
           <label className="block text-sm font-medium text-slate-700 mb-1">Co-Applicant Monthly Income (₹, Optional)</label>
-          <input type="number" value={coApplicantIncome} onChange={(e) => setCoApplicantIncome(e.target.value === '' ? '' : Number(e.target.value))} placeholder="Leave blank if applying alone" className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 shadow-sm mb-3" />
+          <CurrencyInput value={coApplicantIncome} onChange={setCoApplicantIncome} placeholder="Leave blank if applying alone" className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 shadow-sm mb-3" />
           {coApplicantIncome !== '' && Number(coApplicantIncome) > 0 && (
             <label className="flex items-center text-sm text-slate-700">
               <input type="checkbox" checked={coApplicantSalaried} onChange={(e) => setCoApplicantSalaried(e.target.checked)} className="mr-2 h-4 w-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500" />
@@ -173,7 +238,7 @@ function App() {
             </div>
             <div>
               <label className="block text-sm font-medium text-amber-900 mb-1">Annual ITR Declared Income (₹, Optional)</label>
-              <input type="number" value={itrIncome} onChange={(e) => setItrIncome(e.target.value === '' ? '' : Number(e.target.value))} placeholder="e.g. 400000" className="w-full p-3 border border-amber-300 rounded-lg focus:ring-2 focus:ring-amber-500 shadow-sm bg-white" />
+              <CurrencyInput value={itrIncome} onChange={setItrIncome} placeholder="e.g. 400000" className="w-full p-3 border border-amber-300 rounded-lg focus:ring-2 focus:ring-amber-500 shadow-sm bg-white" />
               <p className="text-xs text-amber-700 mt-1">If blank, we widen the safety band due to missing documentation.</p>
             </div>
           </div>
@@ -182,11 +247,11 @@ function App() {
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Monthly Household Expenses (₹)</label>
-            <input type="number" value={expenses} onChange={(e) => setExpenses(e.target.value === '' ? '' : Number(e.target.value))} placeholder="Optional" className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 shadow-sm" />
+            <CurrencyInput value={expenses} onChange={setExpenses} placeholder="Optional" className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 shadow-sm" />
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Current Total EMIs (₹)</label>
-            <input type="number" value={existingEmi} onChange={(e) => setExistingEmi(e.target.value === '' ? '' : Number(e.target.value))} placeholder="Optional" className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 shadow-sm" />
+            <CurrencyInput value={existingEmi} onChange={setExistingEmi} placeholder="Optional" className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 shadow-sm" />
           </div>
         </div>
       </div>
@@ -260,7 +325,7 @@ function App() {
               
               <div>
                 <label className="block text-sm font-medium text-indigo-900 mb-1">Estimated Property Value (₹)</label>
-                <input type="number" value={propertyValue} onChange={(e) => setPropertyValue(e.target.value === '' ? '' : Number(e.target.value))} className="w-full p-3 border border-indigo-200 rounded-lg focus:ring-2 focus:ring-indigo-500 shadow-sm bg-white" />
+                <CurrencyInput value={propertyValue} onChange={setPropertyValue} className="w-full p-3 border border-indigo-200 rounded-lg focus:ring-2 focus:ring-indigo-500 shadow-sm bg-white" />
               </div>
             </div>
           )}
@@ -294,6 +359,13 @@ function App() {
             </h2>
           </div>
           <p className="text-lg text-slate-700 leading-relaxed font-medium">{result.verdict_reason}</p>
+          {isApprove && (
+            <div className="mt-4 pt-4 border-t border-black/10">
+              <p className="text-sm font-medium text-slate-700">
+                Estimated In-Hand Amount (after ~2% standard processing fee): <span className="font-bold text-slate-900">₹{Math.floor(Number(amountWanted) * 0.98).toLocaleString('en-IN')}</span>
+              </p>
+            </div>
+          )}
         </div>
 
         {isApprove && (
