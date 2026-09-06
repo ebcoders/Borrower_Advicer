@@ -349,7 +349,7 @@ function App() {
                     <p className="text-2xl font-bold text-white">{result.product_route}</p>
                     {result.was_rerouted && (
                       <p className="text-xs text-amber-300 mt-1">
-                        (We routed you away from a {result.product_requested} loan because this product offers better terms for your profile).
+                        (We routed you away from a {result.product_requested} loan to match what you actually qualify for based on your profile).
                       </p>
                     )}
                   </div>

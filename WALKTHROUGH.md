@@ -20,7 +20,7 @@ More importantly, it handles **silence**. If a user like Ravi leaves his existin
 
 ## 3. Product Judgments & The Fiduciary Approach (2 min)
 
-"A true financial advocate educates, it doesn't force. 
+"A true financial advocate educates, it doesn't force. Notice that the engine largely ignores the initial 'What loan type did you want?' dropdown. A fiduciary engine routes on substance (collateral, purpose, income type), not on the borrower's uneducated guess. 
 
 For example, if you declare that you own unencumbered property, the Copilot asks you: *'Are you willing to pledge this property as collateral to lower your rate?'* 
 * If you say yes, it routes you to a Loan Against Property (LAP) at ~9%. 
