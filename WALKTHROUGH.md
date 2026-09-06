@@ -29,6 +29,16 @@ This educates the borrower on their leverage without forcing them to risk forecl
 
 Similarly, we protect stable co-applicants. If Ravi is a volatile gig worker but his wife is a salaried teacher, we only apply the volatility haircut to his income. We preserve 100% of her salary, accurately reflecting the household's actual risk profile."
 
-## 4. The Live Demo Handover
+## 4. What I Would Build Next, and What I Would Cut
+
+"If we were taking this to production, here are my immediate product decisions:
+
+**Build Next: Consented Account Aggregator (AA) Pull**
+Currently, we rely on user self-reporting for income and expenses. Next, I would integrate a quick, consented bureau/AA pull via India's Account Aggregator framework. This replaces manual entry, immediately fetching true cash flow, bouncing cheques, and active EMIs to run the math flawlessly. We'd also build a multi-lender quote comparison API to pull live rates instead of relying on hardcoded heuristic bands.
+
+**What I Would Cut: Fine-grained credit scoring logic**
+I spent a lot of time on granular 5-point penalties in the scoring engine (e.g., small bumps for savings months). In practice, it barely moves the needle. A user with predatory app loans fails anyway, and a prime borrower passes anyway. I would cut the granular scoring and move to a simpler 'Stoplight' system (Red/Yellow/Green) based purely on three hard gates: CIBIL Score, DTI, and default history. It reduces code complexity and user confusion."
+
+## 5. The Live Demo Handover
 
 "All mathematical variables—LTV caps, FOIR limits, haircuts, and rate bands—are declared as named constants at the top of `src/rules.ts`. If you want to see what happens when the RBI tightens FOIR from 50% to 40%, we can change one line of code right now and watch the engine adapt instantly."

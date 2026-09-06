@@ -31,6 +31,7 @@ function CurrencyInput({ value, onChange, className, placeholder }: { value: num
 
 function App() {
   const [step, setStep] = useState(1);
+  const [showMath, setShowMath] = useState(false);
   const [purpose, setPurpose] = useState('medical');
   const [loanTypeWanted, setLoanTypeWanted] = useState('personal');
   const [amountWanted, setAmountWanted] = useState<number | ''>(500000);
@@ -342,7 +343,7 @@ function App() {
     return (
       <div className="space-y-8 animate-in fade-in slide-in-from-bottom-8 duration-700 pb-20">
         
-        {/* Header Verdict Card */}
+        {/* Output 1: Verdict */}
         <div className={`p-8 rounded-2xl border-2 ${
           result.verdict === 'borrow' ? 'bg-emerald-50 border-emerald-500' :
           result.verdict === 'borrow_less' ? 'bg-amber-50 border-amber-500' :
@@ -352,13 +353,16 @@ function App() {
             {result.verdict === 'borrow' && <CheckCircle2 className="w-10 h-10 text-emerald-600" />}
             {result.verdict === 'borrow_less' && <AlertTriangle className="w-10 h-10 text-amber-600" />}
             {result.verdict === 'dont_borrow' && <AlertCircle className="w-10 h-10 text-red-600" />}
-            <h2 className="text-3xl font-bold text-slate-900">
-              {result.verdict === 'borrow' ? 'Safe to Borrow' :
-               result.verdict === 'borrow_less' ? 'Borrow Less' :
-               'Do Not Borrow'}
-            </h2>
+            <div>
+              <p className="text-xs uppercase tracking-widest font-bold text-slate-500 mb-1">Output 1: Verdict</p>
+              <h2 className="text-3xl font-bold text-slate-900">
+                {result.verdict === 'borrow' ? 'Safe to Borrow' :
+                 result.verdict === 'borrow_less' ? 'Borrow Less' :
+                 'Do Not Borrow'}
+              </h2>
+            </div>
           </div>
-          <p className="text-lg text-slate-700 leading-relaxed font-medium">{result.verdict_reason}</p>
+          <p className="text-lg text-slate-700 leading-relaxed font-medium"><strong>Why:</strong> {result.verdict_reason}</p>
           {isApprove && (
             <div className="mt-4 pt-4 border-t border-black/10">
               <p className="text-sm font-medium text-slate-700">
@@ -370,14 +374,14 @@ function App() {
 
         {isApprove && (
           <>
-            {/* The Dual Ceiling Visualizer */}
+            {/* Output 2: Two Amounts */}
             <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
               <div className="bg-slate-50 border-b border-slate-200 px-6 py-4 flex items-center gap-3">
                 <Calculator className="w-5 h-5 text-indigo-600" />
-                <h3 className="font-semibold text-slate-800 text-lg">The "Dual Ceiling" Analysis</h3>
+                <h3 className="font-semibold text-slate-800 text-lg">Output 2: Two Amounts</h3>
               </div>
               <div className="p-6">
-                <p className="text-slate-600 mb-6 text-sm">Banks look at what you can theoretically afford (FOIR). We look at what you can survive after expenses and stress tests. Never borrow up to the Bank limit.</p>
+                <p className="text-slate-600 mb-6 text-sm"><strong>Why this gap exists:</strong> Banks look at maximum theoretical affordability (FOIR), while we calculate your actual survival limit after living expenses and stress tests.</p>
                 
                 <div className="space-y-6">
                   <div>
@@ -421,13 +425,13 @@ function App() {
                     <p className="text-2xl font-bold text-white">{result.product_route}</p>
                     {result.was_rerouted && (
                       <p className="text-xs text-amber-300 mt-1">
-                        (We routed you away from a {result.product_requested} loan to match what you actually qualify for based on your profile).
+                        <strong>Why:</strong> We routed you away from a {result.product_requested} loan to match what you actually qualify for based on your collateral.
                       </p>
                     )}
                   </div>
                   
                   <div>
-                    <p className="text-indigo-200 text-sm font-medium uppercase tracking-wider mb-1">Fair Interest Rate</p>
+                    <p className="text-indigo-200 text-sm font-medium uppercase tracking-wider mb-1">Output 3: Fair Rate + APR</p>
                     <p className="text-3xl font-bold text-emerald-400">{result.negotiation_card.fair_rate}</p>
                     
                     {/* NEW: Quoted Rate Comparison */}
@@ -441,11 +445,24 @@ function App() {
                         </p>
                       </div>
                     )}
-                    <p className="text-sm text-indigo-300 mt-2">{result.negotiation_card.apr_note}</p>
+                    <p className="text-sm text-indigo-300 mt-2"><strong>Why:</strong> {result.negotiation_card.apr_note}</p>
                   </div>
                 </div>
                 
                 <div className="space-y-6">
+                  <div className="bg-white/10 rounded-xl p-5 border border-white/10">
+                    <p className="text-indigo-200 text-sm font-medium uppercase tracking-wider mb-2 flex items-center gap-2">
+                      <AlertTriangle className="w-4 h-4 text-amber-400" /> Output 4: EMI Ceiling + Stress Case
+                    </p>
+                    <p className="text-lg font-bold mb-3">₹{result.negotiation_card.max_emi.toLocaleString('en-IN')}</p>
+                    <div className="bg-slate-900/50 p-3 rounded text-sm text-slate-300 border-l-2 border-amber-400">
+                      <strong>Why:</strong> {result.stress_test.text}
+                    </div>
+                    {!result.stress_test.holds && (
+                      <p className="text-red-400 text-xs mt-2 font-medium">WARNING: You fail the stress test. Reconsider borrowing this much.</p>
+                    )}
+                  </div>
+                  
                   <div className="bg-white/10 rounded-xl p-5 border border-white/10">
                     <p className="text-sm font-medium text-indigo-200 mb-3 uppercase tracking-wider">Ask The Lender For:</p>
                     <ul className="space-y-2">
@@ -495,6 +512,104 @@ function App() {
             </div>
           </div>
         )}
+
+        {/* How did we calculate this? (Progressive Disclosure) */}
+        <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+          <button 
+            onClick={() => setShowMath(!showMath)} 
+            className="w-full bg-slate-50 border-b border-slate-100 px-6 py-4 flex items-center justify-between hover:bg-slate-100 transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <Calculator className="w-5 h-5 text-slate-500" />
+              <h3 className="font-semibold text-slate-800 text-lg">How did we calculate this?</h3>
+            </div>
+            <ChevronRight className={`w-5 h-5 text-slate-400 transition-transform duration-300 ${showMath ? 'rotate-90' : ''}`} />
+          </button>
+          
+          {showMath && result.math_breakdown && (
+            <div className="p-6 bg-slate-50 animate-in slide-in-from-top-2 duration-300">
+              
+              <div className="space-y-8">
+                {/* Step 1 */}
+                <div className="relative">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="flex items-center justify-center w-6 h-6 rounded-full bg-indigo-100 text-indigo-700 font-bold text-xs">1</span>
+                    <h4 className="font-semibold text-slate-800">Calculating your True Free Cashflow</h4>
+                  </div>
+                  <p className="text-sm text-slate-600 mb-3 ml-8">We take your verified income and subtract your living costs to see what you actually have left over every month.</p>
+                  
+                  <div className="ml-8 bg-white border border-slate-200 rounded-lg p-4 font-mono text-sm space-y-2 shadow-sm">
+                    <div className="flex justify-between text-slate-700">
+                      <span>Assessed Monthly Income:</span>
+                      <span>₹{Math.round(result.math_breakdown.assessed_income).toLocaleString('en-IN')}</span>
+                    </div>
+                    <div className="flex justify-between text-red-600">
+                      <span>Living Expenses:</span>
+                      <span>-₹{Math.round(result.math_breakdown.actual_expenses).toLocaleString('en-IN')}</span>
+                    </div>
+                    <div className="flex justify-between text-red-600 border-b border-slate-100 pb-3">
+                      <span>Current Active EMIs:</span>
+                      <span>-₹{Math.round(result.math_breakdown.existing_emi).toLocaleString('en-IN')}</span>
+                    </div>
+                    <div className="flex justify-between text-emerald-700 font-semibold pt-1">
+                      <span>Free Cash Available:</span>
+                      <span>₹{Math.round(result.math_breakdown.max_cashflow_emi).toLocaleString('en-IN')}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Step 2 */}
+                <div className="relative">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="flex items-center justify-center w-6 h-6 rounded-full bg-indigo-100 text-indigo-700 font-bold text-xs">2</span>
+                    <h4 className="font-semibold text-slate-800">Applying the Bank Rule (FOIR)</h4>
+                  </div>
+                  <p className="text-sm text-slate-600 mb-3 ml-8">Banks won't let you use 100% of your free cash for a loan. Based on your profile, the engine limits your total EMI burden to <strong>{result.math_breakdown.safe_foir_pct}%</strong> of your income.</p>
+                  
+                  <div className="ml-8 bg-white border border-slate-200 rounded-lg p-4 font-mono text-sm shadow-sm">
+                    <div className="flex justify-between text-amber-700 font-semibold">
+                      <span>Bank FOIR Limit:</span>
+                      <span>₹{Math.round(result.math_breakdown.max_foir_emi).toLocaleString('en-IN')}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Step 3 */}
+                <div className="relative">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="flex items-center justify-center w-6 h-6 rounded-full bg-indigo-100 text-indigo-700 font-bold text-xs">3</span>
+                    <h4 className="font-semibold text-slate-800">Choosing the Safest Ceiling</h4>
+                  </div>
+                  <p className="text-sm text-slate-600 mb-3 ml-8">The engine automatically picks the lowest, safest number between Step 1 and Step 2 to protect you from over-leveraging.</p>
+                  
+                  <div className="ml-8 bg-indigo-50 border border-indigo-200 rounded-lg p-4 font-mono text-sm shadow-sm">
+                    <div className="flex justify-between text-indigo-900 font-bold">
+                      <span>Final Safe Monthly EMI:</span>
+                      <span>₹{Math.round(result.math_breakdown.final_safe_emi).toLocaleString('en-IN')}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Step 4 */}
+                <div className="relative">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="flex items-center justify-center w-6 h-6 rounded-full bg-emerald-100 text-emerald-700 font-bold text-xs">4</span>
+                    <h4 className="font-semibold text-emerald-900">Calculating your Max Loan</h4>
+                  </div>
+                  <p className="text-sm text-slate-600 mb-3 ml-8">Working backward: A monthly payment of ₹{Math.round(result.math_breakdown.final_safe_emi).toLocaleString('en-IN')} over the loan tenure, factoring in the expected interest rate, gives you your Safe Borrowing Ceiling.</p>
+                  
+                  <div className="ml-8 bg-emerald-600 border border-emerald-700 rounded-lg p-5 font-mono text-sm shadow-sm text-white">
+                    <div className="flex justify-between font-bold text-base">
+                      <span>Safe Borrowing Ceiling:</span>
+                      <span>₹{Math.round(result.math_breakdown.final_safe_principal).toLocaleString('en-IN')}</span>
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+          )}
+        </div>
 
         <div className="flex justify-center pt-8">
           <button onClick={handleReset} className="text-indigo-600 font-medium hover:text-indigo-700">

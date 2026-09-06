@@ -328,6 +328,18 @@ export function runAssessment(answers: AssessmentAnswers) {
   const stressedEmiOnProposed = emi(proposedLoan, stressedRate, effectiveTenure);
   const remainingUnderStress = stressedIncome - actualExpenses - existingEmi - stressedEmiOnProposed;
 
+  const math_breakdown = {
+    assessed_income: assessedIncome,
+    actual_expenses: actualExpenses,
+    existing_emi: existingEmi,
+    living_buffer: livingBuffer,
+    safe_foir_pct: safeFoir * 100,
+    max_foir_emi: maxFoirSafeEmi,
+    max_cashflow_emi: maxCashflowSafeEmi,
+    final_safe_emi: safeAvailableEmi,
+    final_safe_principal: finalSafePrincipal
+  };
+
   return {
     verdict,
     verdict_reason: reason,
@@ -341,6 +353,7 @@ export function runAssessment(answers: AssessmentAnswers) {
     lender_sanction_range: [Math.max(0, lenderRangeMin), lenderRangeMax],
     consequences,
     score,
+    math_breakdown,
     stress_test: {
       text: `Stress Test: If income drops 10% and rates rise 2%, your EMI becomes ₹${Math.round(stressedEmiOnProposed).toLocaleString('en-IN')}. You will have ₹${Math.round(remainingUnderStress).toLocaleString('en-IN')} left over for living expenses.`,
       holds: remainingUnderStress > 0
