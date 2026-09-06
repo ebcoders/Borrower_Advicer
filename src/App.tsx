@@ -7,39 +7,45 @@ export default function App() {
   
   // State
   const [purpose, setPurpose] = useState('medical');
-  const [amountWanted, setAmountWanted] = useState<number>(100000);
+  const [amountWanted, setAmountWanted] = useState<string>('100000');
   const [tenure, setTenure] = useState<number>(60);
   
   const [incomeType, setIncomeType] = useState('salaried');
-  const [declaredIncome, setDeclaredIncome] = useState<number>(50000);
+  const [declaredIncome, setDeclaredIncome] = useState<string>('50000'); 
+  const [variableIncomePct, setVariableIncomePct] = useState<string>('');
+  const [yearsInIncome, setYearsInIncome] = useState<string>('');
   const [itrIncome, setItrIncome] = useState<number | ''>('');
   
   const [expenses, setExpenses] = useState<number | ''>('');
-  const [existingEmi, setExistingEmi] = useState<number>(0);
+  const [existingEmi, setExistingEmi] = useState<number | ''>('');
   const [missedPayments, setMissedPayments] = useState(false);
   const [savingsMonths, setSavingsMonths] = useState<number | ''>('');
   
-  const [creditScore, setCreditScore] = useState<number | ''>('');
+  const [creditStatus, setCreditStatus] = useState<'known' | 'unknown' | 'ntc'>('unknown');
+  const [creditScore, setCreditScore] = useState<string>('');
   const [ownsProperty, setOwnsProperty] = useState(false);
-  const [propertyValue, setPropertyValue] = useState<number | ''>('');
+  const [propertyValue, setPropertyValue] = useState<string>('');
 
   const [result, setResult] = useState<any>(null);
 
   const handleCalculate = () => {
     const answers: AssessmentAnswers = {
       purpose,
-      amount_wanted: amountWanted,
+      amount_wanted: amountWanted === '' ? 0 : parseInt(amountWanted, 10),
       tenure_months: tenure,
       income_type: incomeType,
-      declared_income: declaredIncome,
+      declared_income: declaredIncome === '' ? 0 : parseInt(declaredIncome, 10),
+      variable_income_pct: variableIncomePct === '' ? null : parseInt(variableIncomePct, 10),
+      years_in_income: yearsInIncome === '' ? null : parseInt(yearsInIncome, 10),
       itr_income: itrIncome === '' ? null : Number(itrIncome),
       expenses: expenses === '' ? null : Number(expenses),
-      existing_emi: existingEmi,
+      existing_emi: existingEmi === '' ? 0 : Number(existingEmi),
       missed_payments: missedPayments,
       savings_months: savingsMonths === '' ? null : Number(savingsMonths),
-      credit_score: creditScore === '' ? null : Number(creditScore),
+      credit_status: creditStatus,
+      credit_score: creditScore === '' ? null : parseInt(creditScore, 10),
       owns_property: ownsProperty,
-      property_value: propertyValue === '' ? null : Number(propertyValue)
+      property_value: propertyValue === '' ? null : parseInt(propertyValue, 10)
     };
     setResult(runAssessment(answers));
     setStep(4);
@@ -66,18 +72,29 @@ export default function App() {
 
       <div>
         <label className="block text-sm font-medium mb-1">How much do you want to borrow? (Rs)</label>
-        <input type="number" value={amountWanted} onChange={e => setAmountWanted(Number(e.target.value))} className="w-full p-3 border border-line rounded bg-white outline-none focus:border-gold transition-colors" step="10000" min="0" />
+        <input 
+          type="number" 
+          value={amountWanted} 
+          onChange={e => {
+            const val = e.target.value;
+            setAmountWanted(val === '' ? '' : val.replace(/^0+(?=\d)/, ''));
+          }} 
+          className="w-full p-3 border border-line rounded bg-white outline-none focus:border-gold transition-colors" step="10000" min="0" placeholder="e.g. 100000" 
+        />
+        {amountWanted !== '' && (
+          <p className="text-xs text-forest mt-1 font-medium">₹ {Number(amountWanted).toLocaleString('en-IN')}</p>
+        )}
       </div>
 
       <div>
-        <label className="block text-sm font-medium mb-1">Over how many months?</label>
+        <label className="block text-sm font-medium mb-1">Preferred Tenure (Months)</label>
         <select value={tenure} onChange={e => setTenure(Number(e.target.value))} className="w-full p-3 border border-line rounded bg-white outline-none focus:border-gold transition-colors">
           <option value="12">1 Year (12 mo)</option>
           <option value="24">2 Years (24 mo)</option>
           <option value="36">3 Years (36 mo)</option>
           <option value="48">4 Years (48 mo)</option>
           <option value="60">5 Years (60 mo)</option>
-          <option value="120">10 Years (120 mo) - LAP/Home only</option>
+          <option value="120">10 Years (LAP/Home only)</option>
         </select>
       </div>
 
@@ -115,14 +132,41 @@ export default function App() {
         <label className="block text-sm font-medium mb-1">
           {incomeType === 'salaried' ? 'Net Monthly Take-Home (Rs)' : 'Average Monthly Income (Rs)'}
         </label>
-        <input type="number" value={declaredIncome} onChange={e => setDeclaredIncome(Number(e.target.value))} className="w-full p-3 border border-line rounded bg-white outline-none focus:border-gold transition-colors" step="1000" min="0" />
+        <input 
+          type="number" 
+          value={declaredIncome} 
+          onChange={e => {
+            const val = e.target.value;
+            setDeclaredIncome(val === '' ? '' : val.replace(/^0+(?=\d)/, ''));
+          }} 
+          className="w-full p-3 border border-line rounded bg-white outline-none focus:border-gold transition-colors" step="1000" min="0" placeholder="e.g. 50000" 
+        />
+        {declaredIncome !== '' && (
+          <p className="text-xs text-forest mt-1 font-medium">₹ {Number(declaredIncome).toLocaleString('en-IN')}</p>
+        )}
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium mb-1">Years in current job/business</label>
+        <input type="number" value={yearsInIncome} onChange={e => setYearsInIncome(e.target.value)} className="w-full p-3 border border-line rounded bg-white outline-none focus:border-gold transition-colors" min="0" step="1" placeholder="e.g. 3" />
       </div>
 
       {incomeType !== 'salaried' && (
-        <div className="bg-paper p-4 rounded border border-line">
-          <label className="block text-sm font-medium mb-1">Latest ITR Annual Declared Income (Rs)</label>
-          <p className="text-xs text-ink/60 mb-2">Leave blank if you don't file an ITR or don't know. (Note: Skipping this widens your estimate ranges).</p>
-          <input type="number" value={itrIncome} onChange={e => setItrIncome(e.target.value === '' ? '' : Number(e.target.value))} className="w-full p-3 border border-line rounded bg-white outline-none focus:border-gold transition-colors" step="10000" min="0" placeholder="e.g. 500000" />
+        <div className="bg-paper p-4 rounded border border-line space-y-4">
+          <div>
+            <label className="block text-sm font-medium mb-1">What % of this income is seasonal/irregular?</label>
+            <p className="text-xs text-ink/60 mb-2">Be honest—banks heavily discount cash/seasonal income.</p>
+            <input type="number" value={variableIncomePct} onChange={e => setVariableIncomePct(e.target.value)} className="w-full p-3 border border-line rounded bg-white outline-none focus:border-gold transition-colors" min="0" max="100" placeholder="e.g. 40" />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-1">Latest ITR Annual Declared Income (Rs)</label>
+            <p className="text-xs text-ink/60 mb-2">Leave blank if you don't file an ITR or don't know.</p>
+            <input type="number" value={itrIncome} onChange={e => setItrIncome(e.target.value === '' ? '' : Number(e.target.value.replace(/^0+/, '')))} className="w-full p-3 border border-line rounded bg-white outline-none focus:border-gold transition-colors" step="10000" min="0" placeholder="e.g. 500000" />
+            {itrIncome !== '' && (
+              <p className="text-xs text-forest mt-1 font-medium">₹ {Number(itrIncome).toLocaleString('en-IN')}</p>
+            )}
+          </div>
         </div>
       )}
 
@@ -142,13 +186,20 @@ export default function App() {
 
       <div>
         <label className="block text-sm font-medium mb-1">Total Existing EMIs per month (Rs)</label>
-        <input type="number" value={existingEmi} onChange={e => setExistingEmi(Number(e.target.value))} className="w-full p-3 border border-line rounded bg-white outline-none focus:border-gold transition-colors" step="500" min="0" />
+        <p className="text-xs text-ink/60 mb-2">Leave blank if you have no existing loans.</p>
+        <input type="number" value={existingEmi} onChange={e => setExistingEmi(e.target.value === '' ? '' : Number(e.target.value.replace(/^0+/, '')))} className="w-full p-3 border border-line rounded bg-white outline-none focus:border-gold transition-colors" step="500" min="0" placeholder="e.g. 5000" />
+        {existingEmi !== '' && Number(existingEmi) > 0 && (
+          <p className="text-xs text-forest mt-1 font-medium">₹ {Number(existingEmi).toLocaleString('en-IN')}</p>
+        )}
       </div>
 
       <div>
         <label className="block text-sm font-medium mb-1">Essential Monthly Living Expenses (Rs)</label>
         <p className="text-xs text-ink/60 mb-2">Rent, food, school, bills. Leave blank to let the system guess conservatively.</p>
-        <input type="number" value={expenses} onChange={e => setExpenses(e.target.value === '' ? '' : Number(e.target.value))} className="w-full p-3 border border-line rounded bg-white outline-none focus:border-gold transition-colors" step="1000" min="0" placeholder="e.g. 25000" />
+        <input type="number" value={expenses} onChange={e => setExpenses(e.target.value === '' ? '' : Number(e.target.value.replace(/^0+/, '')))} className="w-full p-3 border border-line rounded bg-white outline-none focus:border-gold transition-colors" step="1000" min="0" placeholder="e.g. 25000" />
+        {expenses !== '' && (
+          <p className="text-xs text-forest mt-1 font-medium">₹ {Number(expenses).toLocaleString('en-IN')}</p>
+        )}
       </div>
 
       <div className="p-4 bg-brick/10 border border-brick/20 rounded">
@@ -158,16 +209,23 @@ export default function App() {
         </label>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid sm:grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium mb-1">Emergency Savings</label>
-          <p className="text-xs text-ink/60 mb-2">(Months of expenses)</p>
+          <p className="text-xs text-ink/60 mb-2">(Months of expenses saved)</p>
           <input type="number" value={savingsMonths} onChange={e => setSavingsMonths(e.target.value === '' ? '' : Number(e.target.value))} className="w-full p-3 border border-line rounded bg-white outline-none focus:border-gold transition-colors" min="0" step="1" placeholder="Optional" />
         </div>
         <div>
           <label className="block text-sm font-medium mb-1">Credit Score</label>
           <p className="text-xs text-ink/60 mb-2">e.g. CIBIL (300-900)</p>
-          <input type="number" value={creditScore} onChange={e => setCreditScore(e.target.value === '' ? '' : Number(e.target.value))} className="w-full p-3 border border-line rounded bg-white outline-none focus:border-gold transition-colors" min="300" max="900" step="1" placeholder="Unknown" />
+          <select value={creditStatus} onChange={e => setCreditStatus(e.target.value as any)} className="w-full p-3 border border-line rounded bg-white outline-none focus:border-gold transition-colors mb-2">
+            <option value="unknown">I don't know my score</option>
+            <option value="known">I know my score</option>
+            <option value="ntc">New to Credit (Never had loan)</option>
+          </select>
+          {creditStatus === 'known' && (
+            <input type="number" value={creditScore} onChange={e => setCreditScore(e.target.value)} className="w-full p-3 border border-line rounded bg-white outline-none focus:border-gold transition-colors" min="300" max="900" step="1" placeholder="e.g. 750" />
+          )}
         </div>
       </div>
 
@@ -179,7 +237,10 @@ export default function App() {
         {ownsProperty && (
           <div className="pl-7">
             <label className="block text-sm font-medium mb-1">Approximate Value (Rs)</label>
-            <input type="number" value={propertyValue} onChange={e => setPropertyValue(e.target.value === '' ? '' : Number(e.target.value))} className="w-full p-3 border border-line rounded bg-white outline-none focus:border-gold transition-colors" step="100000" min="0" />
+            <input type="number" value={propertyValue} onChange={e => setPropertyValue(e.target.value === '' ? '' : e.target.value.replace(/^0+/, ''))} className="w-full p-3 border border-line rounded bg-white outline-none focus:border-gold transition-colors" step="100000" min="0" />
+            {propertyValue !== '' && (
+              <p className="text-xs text-forest mt-1 font-medium">₹ {Number(propertyValue).toLocaleString('en-IN')}</p>
+            )}
           </div>
         )}
       </div>
@@ -219,6 +280,19 @@ export default function App() {
           </div>
         )}
 
+        {/* DON'T BORROW FALLBACK CARD (FIX #4) */}
+        {result.verdict === 'dont_borrow' && (
+           <div className="bg-brick/10 border border-brick/20 rounded p-6 mt-6">
+             <h4 className="text-brick font-medium uppercase tracking-wider text-sm mb-3">Path Forward</h4>
+             <p className="text-sm text-ink/80 mb-4">Lenders who offer you money right now are likely predatory and will trap you in high-interest debt. Do not accept loans right now.</p>
+             <ul className="space-y-2 text-sm text-ink/70">
+               <li>• Focus on clearing existing overdue EMIs.</li>
+               <li>• Build a 3-month track record of zero missed payments.</li>
+               <li>• Re-run this assessment in 90 days.</li>
+             </ul>
+           </div>
+        )}
+
         {/* CORE NUMBERS - Only show if not a hard decline */}
         {result.verdict !== 'dont_borrow' && (
           <div className="space-y-6">
@@ -226,20 +300,20 @@ export default function App() {
               <div className="border border-line rounded p-5 bg-white">
                 <p className="text-sm font-medium text-ink/60 uppercase tracking-wider mb-1">A bank may sanction</p>
                 <p className="font-serif text-2xl text-ink">Rs {result.lender_sanction_range[0].toLocaleString('en-IN')} - {result.lender_sanction_range[1].toLocaleString('en-IN')}</p>
-                <p className="text-xs text-ink/50 mt-2">Based strictly on gross income FOIR limits.</p>
+                <p className="text-xs text-ink/50 mt-2">Based strictly on gross income FOIR & collateral LTV.</p>
               </div>
               <div className="border-2 border-forest/30 rounded p-5 bg-forest/5 relative">
                 <span className="absolute -top-3 right-4 bg-forest text-white text-[10px] font-bold tracking-widest px-2 py-0.5 uppercase rounded">Safe Limit</span>
                 <p className="text-sm font-medium text-ink/60 uppercase tracking-wider mb-1">You can safely carry</p>
                 <p className="font-serif text-2xl text-forest font-bold">Rs {result.safe_carry_range[0].toLocaleString('en-IN')} - {result.safe_carry_range[1].toLocaleString('en-IN')}</p>
-                <p className="text-xs text-ink/50 mt-2">Protects your living expenses and a safety buffer.</p>
+                <p className="text-xs text-ink/50 mt-2">Protects living expenses and survives stress testing.</p>
               </div>
             </div>
 
             <div className="border border-line rounded overflow-hidden">
               <div className="bg-paper p-3 border-b border-line flex justify-between items-center">
                 <span className="font-medium text-sm">Product Route</span>
-                <span className="font-serif font-semibold">{result.product_route}</span>
+                <span className="font-serif font-semibold text-right">{result.product_route}</span>
               </div>
               <div className="bg-white p-3 border-b border-line flex justify-between items-center">
                 <span className="font-medium text-sm">Fair Interest Rate</span>
