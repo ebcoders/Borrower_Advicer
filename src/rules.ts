@@ -1,12 +1,15 @@
 export const PRODUCTIVE_PURPOSES = new Set(["business", "vehicle_for_income", "education", "medical", "home_improvement"]);
 export const RISKY_PURPOSES = new Set(["gambling", "speculative"]);
 
-// LTV & FOIR Constants (Easy to change during interview)
+// LTV, FOIR & Smoothing Constants
 export const LAP_LTV_CAP = 0.60;
 export const LENDER_FOIR_SALARIED = 0.50;
 export const LENDER_FOIR_INFORMAL = 0.45;
 export const SAFE_FOIR_SALARIED = 0.45;
 export const SAFE_FOIR_INFORMAL = 0.40;
+export const RATE_SPREAD_LOWER_PAD = 0.5; 
+export const RATE_SPREAD_UPPER_PAD = 1.0; 
+export const MAX_RETIREMENT_AGE = 65;
 
 export const RATE_BANDS: Record<string, [number, number]> = {
   lap: [9.0, 11.5],
@@ -35,15 +38,18 @@ function roundTo(num: number, step: number) {
 
 export interface AssessmentAnswers {
   purpose: string;
+  loan_type_wanted: string; // New field
   amount_wanted: number;
   tenure_months: number;
+  age: number | null; // New field
   income_type: string;
   declared_income: number;
-  variable_income_pct: number | null; // Replaces flat 30% haircut
-  years_in_income: number | null; // Stability modifier
+  co_applicant_income: number | null;
+  variable_income_pct: number | null; 
+  years_in_income: number | null; 
   itr_income: number | null;
   expenses: number | null;
-  existing_emi: number;
+  existing_emi: number | null; // Changed to nullable
   credit_status: 'known' | 'unknown' | 'ntc';
   credit_score: number | null;
   missed_payments: boolean;
@@ -53,20 +59,27 @@ export interface AssessmentAnswers {
 }
 
 function assessIncome(answers: AssessmentAnswers, consequences: string[]) {
-  let assessedIncome = answers.declared_income;
+  const totalDeclared = answers.declared_income + (answers.co_applicant_income || 0);
+  let assessedIncome = totalDeclared;
   let missingItr = false;
   
   if (answers.income_type !== 'salaried') {
-    const haircutPct = answers.variable_income_pct !== null ? (answers.variable_income_pct / 100) : 0.30;
+    // FIX: Cap the variable income haircut at 50% max, avoiding 100% erasure
+    const haircutPct = answers.variable_income_pct !== null ? Math.min(0.50, answers.variable_income_pct / 100) : 0.30;
     
     if (answers.itr_income) {
-      assessedIncome = Math.max(answers.declared_income * (1 - haircutPct), answers.itr_income / 12);
+      assessedIncome = Math.max(totalDeclared * (1 - haircutPct), answers.itr_income / 12);
     } else {
-      assessedIncome = answers.declared_income * (1 - haircutPct);
+      assessedIncome = totalDeclared * (1 - haircutPct);
       missingItr = true;
       consequences.push(`Because you didn't provide an ITR, we discounted your income by ${Math.round(haircutPct*100)}% based on your stated irregular income. Providing an ITR increases your eligible amount.`);
     }
   }
+  
+  if (answers.co_applicant_income) {
+    consequences.push("Including a co-applicant's income increased your total eligible safe capacity.");
+  }
+
   return { assessedIncome, missingItr };
 }
 
@@ -78,15 +91,16 @@ function computeScore(answers: AssessmentAnswers, assessedIncome: number, conseq
   
   if (answers.income_type === 'salaried') score += 15;
   
-  // New Stability Metric
   if (answers.years_in_income !== null) {
     if (answers.years_in_income >= 5) score += 10;
     else if (answers.years_in_income < 2) score -= 10;
   }
 
+  // FIX: Linear interpolation for Savings
   if (answers.savings_months !== null) {
-    if (answers.savings_months >= 3) score += 10;
-    else if (answers.savings_months === 0) score -= 10;
+    if (answers.savings_months === 0) score -= 10;
+    else if (answers.savings_months <= 3) score += (-10 + (20 * (answers.savings_months / 3))); // 0 to 3 mo scales -10 to +10
+    else score += (10 + (5 * Math.min(1, (answers.savings_months - 3) / 3))); // 3 to 6 mo scales +10 to +15
   } else {
     consequences.push("We don't know your emergency savings, so we couldn't give you the 'Safety Net' rate discount.");
   }
@@ -94,9 +108,14 @@ function computeScore(answers: AssessmentAnswers, assessedIncome: number, conseq
   if (PRODUCTIVE_PURPOSES.has(answers.purpose)) score += 10;
   if (RISKY_PURPOSES.has(answers.purpose)) score -= 20;
 
-  const dti = assessedIncome > 0 ? answers.existing_emi / assessedIncome : 1;
-  if (dti < 0.20) score += 10;
-  if (dti > 0.40) score -= 20;
+  // FIX: Linear interpolation for DTI
+  const existingEmi = answers.existing_emi || 0;
+  const dti = assessedIncome > 0 ? existingEmi / assessedIncome : 1;
+  if (dti <= 0.20) {
+    score += (10 * (1 - (dti / 0.20))); // 0 DTI = +10, 20% = 0
+  } else {
+    score += Math.max(-30, -20 * ((dti - 0.20) / 0.30)); // 20% = 0, 50% = -20
+  }
 
   return Math.max(0, Math.min(100, score));
 }
@@ -146,14 +165,24 @@ function determineRouting(answers: AssessmentAnswers, score: number, consequence
   
   return {
     product,
-    finalRateMin: Math.max(minRate, mappedRate - 0.5),
-    finalRateMax: Math.min(maxRate + unknownScorePenalty, mappedRate + 1.0 + unknownScorePenalty)
+    finalRateMin: Math.max(minRate, mappedRate - RATE_SPREAD_LOWER_PAD),
+    finalRateMax: Math.min(maxRate + unknownScorePenalty, mappedRate + RATE_SPREAD_UPPER_PAD + unknownScorePenalty)
   };
 }
 
 export function runAssessment(answers: AssessmentAnswers) {
   const consequences: string[] = [];
   
+  // Age & Tenure Check (FIX)
+  let effectiveTenure = answers.tenure_months;
+  if (answers.age) {
+    const maxTenure = Math.max(12, (MAX_RETIREMENT_AGE - answers.age) * 12);
+    if (effectiveTenure > maxTenure) {
+      effectiveTenure = maxTenure;
+      consequences.push(`Your requested tenure was reduced to ${maxTenure} months to ensure the loan is paid off by the retirement age of ${MAX_RETIREMENT_AGE}.`);
+    }
+  }
+
   // 1. Income
   const { assessedIncome, missingItr } = assessIncome(answers, consequences);
 
@@ -168,26 +197,35 @@ export function runAssessment(answers: AssessmentAnswers) {
     consequences.push("You skipped entering household expenses, so we assumed a conservative 40% of your income. This widens your estimate band.");
   }
 
+  // Existing EMI Silence Penalty (FIX)
+  let existingEmi = 0;
+  let missingExistingEmi = false;
+  if (answers.existing_emi !== null) {
+    existingEmi = answers.existing_emi;
+  } else {
+    missingExistingEmi = true;
+    consequences.push("You didn't confirm your existing EMIs. We assumed zero debt for the calculation, but if you actually have debt, your real eligibility is significantly lower than shown.");
+  }
+
   // 3. Score & Routing
   const score = computeScore(answers, assessedIncome, consequences);
   const { product, finalRateMin, finalRateMax } = determineRouting(answers, score, consequences);
   const avgRate = (finalRateMin + finalRateMax) / 2;
 
-  // 4. CEILINGS (FIXED: Safe FOIR + LTV applied)
+  // 4. CEILINGS
   const lenderFoir = answers.income_type === 'salaried' ? LENDER_FOIR_SALARIED : LENDER_FOIR_INFORMAL;
   const safeFoir = answers.income_type === 'salaried' ? SAFE_FOIR_SALARIED : SAFE_FOIR_INFORMAL;
   
-  const lenderAvailableEmi = Math.max(0, (assessedIncome * lenderFoir) - answers.existing_emi);
+  const lenderAvailableEmi = Math.max(0, (assessedIncome * lenderFoir) - existingEmi);
   
-  const maxFoirSafeEmi = (assessedIncome * safeFoir) - answers.existing_emi;
+  const maxFoirSafeEmi = (assessedIncome * safeFoir) - existingEmi;
   const livingBuffer = Math.max(8000, assessedIncome * 0.20);
-  const maxCashflowSafeEmi = assessedIncome - actualExpenses - answers.existing_emi - livingBuffer;
+  const maxCashflowSafeEmi = assessedIncome - actualExpenses - existingEmi - livingBuffer;
   const safeAvailableEmi = Math.max(0, Math.min(maxFoirSafeEmi, maxCashflowSafeEmi));
 
-  let lenderBasePrincipal = principalFromEmi(lenderAvailableEmi, avgRate, answers.tenure_months);
-  let safeBasePrincipal = principalFromEmi(safeAvailableEmi, avgRate, answers.tenure_months);
+  let lenderBasePrincipal = principalFromEmi(lenderAvailableEmi, avgRate, effectiveTenure);
+  let safeBasePrincipal = principalFromEmi(safeAvailableEmi, avgRate, effectiveTenure);
 
-  // LTV BINDING (Fix #3)
   let ltvCeiling = Infinity;
   if (product === "Loan Against Property (LAP)" && answers.property_value) {
     ltvCeiling = answers.property_value * LAP_LTV_CAP;
@@ -195,24 +233,24 @@ export function runAssessment(answers: AssessmentAnswers) {
     safeBasePrincipal = Math.min(safeBasePrincipal, ltvCeiling);
   }
 
-  // 5. STRESS TEST (FIXED: Now Binding, Fix #2)
+  // 5. STRESS TEST
   const stressedIncome = assessedIncome * 0.90;
   const stressedRate = avgRate + 2.0;
   
-  const maxStressedFoirEmi = (stressedIncome * safeFoir) - answers.existing_emi;
-  const maxStressedCashflowEmi = stressedIncome - actualExpenses - answers.existing_emi - livingBuffer;
+  const maxStressedFoirEmi = (stressedIncome * safeFoir) - existingEmi;
+  const maxStressedCashflowEmi = stressedIncome - actualExpenses - existingEmi - livingBuffer;
   const safeStressedEmi = Math.max(0, Math.min(maxStressedFoirEmi, maxStressedCashflowEmi));
   
-  let safeStressedPrincipal = principalFromEmi(safeStressedEmi, stressedRate, answers.tenure_months);
+  let safeStressedPrincipal = principalFromEmi(safeStressedEmi, stressedRate, effectiveTenure);
   if (product === "Loan Against Property (LAP)") safeStressedPrincipal = Math.min(safeStressedPrincipal, ltvCeiling);
 
-  // The actual safe principal must survive the stress test
   const finalSafePrincipal = Math.min(safeBasePrincipal, safeStressedPrincipal);
 
   // Silence widening
   let wideningFactor = 0.05;
   if (missingItr) wideningFactor += 0.15;
   if (missingExpenses) wideningFactor += 0.10;
+  if (missingExistingEmi) wideningFactor += 0.20;
 
   const safeRangeMin = roundTo(finalSafePrincipal * (1 - wideningFactor), 10000);
   const safeRangeMax = roundTo(finalSafePrincipal * (1 + wideningFactor), 10000);
@@ -222,7 +260,7 @@ export function runAssessment(answers: AssessmentAnswers) {
 
   // APR
   const processingFeePct = 2.0;
-  const tenureYears = answers.tenure_months / 12;
+  const tenureYears = effectiveTenure / 12;
   const aprMin = finalRateMin + (processingFeePct / tenureYears);
   const aprMax = finalRateMax + (processingFeePct / tenureYears);
 
@@ -248,13 +286,14 @@ export function runAssessment(answers: AssessmentAnswers) {
   }
 
   const proposedLoan = Math.min(answers.amount_wanted, safeRangeMax);
-  const stressedEmiOnProposed = emi(proposedLoan, stressedRate, answers.tenure_months);
-  const remainingUnderStress = stressedIncome - actualExpenses - answers.existing_emi - stressedEmiOnProposed;
+  const stressedEmiOnProposed = emi(proposedLoan, stressedRate, effectiveTenure);
+  const remainingUnderStress = stressedIncome - actualExpenses - existingEmi - stressedEmiOnProposed;
 
   return {
     verdict,
     verdict_reason: reason,
     product_route: product,
+    product_requested: answers.loan_type_wanted,
     fair_rate_band: [finalRateMin, finalRateMax],
     apr_band: [aprMin, aprMax],
     safe_carry_range: [Math.max(0, safeRangeMin), safeRangeMax],

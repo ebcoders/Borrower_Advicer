@@ -7,17 +7,20 @@ export default function App() {
   
   // State
   const [purpose, setPurpose] = useState('medical');
+  const [loanTypeWanted, setLoanTypeWanted] = useState('Personal Loan');
   const [amountWanted, setAmountWanted] = useState<string>('100000');
+  const [age, setAge] = useState<string>('');
   const [tenure, setTenure] = useState<number>(60);
   
   const [incomeType, setIncomeType] = useState('salaried');
   const [declaredIncome, setDeclaredIncome] = useState<string>('50000'); 
+  const [coApplicantIncome, setCoApplicantIncome] = useState<string>('');
   const [variableIncomePct, setVariableIncomePct] = useState<string>('');
   const [yearsInIncome, setYearsInIncome] = useState<string>('');
   const [itrIncome, setItrIncome] = useState<number | ''>('');
   
   const [expenses, setExpenses] = useState<number | ''>('');
-  const [existingEmi, setExistingEmi] = useState<number | ''>('');
+  const [existingEmi, setExistingEmi] = useState<string>('');
   const [missedPayments, setMissedPayments] = useState(false);
   const [savingsMonths, setSavingsMonths] = useState<number | ''>('');
   
@@ -31,15 +34,18 @@ export default function App() {
   const handleCalculate = () => {
     const answers: AssessmentAnswers = {
       purpose,
+      loan_type_wanted: loanTypeWanted,
       amount_wanted: amountWanted === '' ? 0 : parseInt(amountWanted, 10),
       tenure_months: tenure,
+      age: age === '' ? null : parseInt(age, 10),
       income_type: incomeType,
       declared_income: declaredIncome === '' ? 0 : parseInt(declaredIncome, 10),
+      co_applicant_income: coApplicantIncome === '' ? null : parseInt(coApplicantIncome, 10),
       variable_income_pct: variableIncomePct === '' ? null : parseInt(variableIncomePct, 10),
       years_in_income: yearsInIncome === '' ? null : parseInt(yearsInIncome, 10),
       itr_income: itrIncome === '' ? null : Number(itrIncome),
       expenses: expenses === '' ? null : Number(expenses),
-      existing_emi: existingEmi === '' ? 0 : Number(existingEmi),
+      existing_emi: existingEmi === '' ? null : parseInt(existingEmi, 10),
       missed_payments: missedPayments,
       savings_months: savingsMonths === '' ? null : Number(savingsMonths),
       credit_status: creditStatus,
@@ -51,10 +57,26 @@ export default function App() {
     setStep(4);
   };
 
+  const renderProgressBar = () => (
+    <div className="w-full bg-line rounded-full h-1.5 mb-6">
+      <div className={`bg-forest h-1.5 rounded-full transition-all duration-300 ${step === 1 ? 'w-1/3' : step === 2 ? 'w-2/3' : 'w-full'}`}></div>
+    </div>
+  );
+
   const renderStep1 = () => (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      {renderProgressBar()}
       <h2 className="text-2xl font-serif text-ink border-b border-line pb-2">Step 1: The Goal</h2>
       
+      <div>
+        <label className="block text-sm font-medium mb-1">What type of loan are you looking for?</label>
+        <select value={loanTypeWanted} onChange={e => setLoanTypeWanted(e.target.value)} className="w-full p-3 border border-line rounded bg-white outline-none focus:border-gold transition-colors">
+          <option value="Personal Loan">Personal Loan</option>
+          <option value="Business Loan">Business Loan</option>
+          <option value="Loan Against Property">Loan Against Property</option>
+        </select>
+      </div>
+
       <div>
         <label className="block text-sm font-medium mb-1">What do you need the loan for?</label>
         <select value={purpose} onChange={e => setPurpose(e.target.value)} className="w-full p-3 border border-line rounded bg-white outline-none focus:border-gold transition-colors">
@@ -70,33 +92,32 @@ export default function App() {
         </select>
       </div>
 
-      <div>
-        <label className="block text-sm font-medium mb-1">How much do you want to borrow? (Rs)</label>
-        <input 
-          type="number" 
-          value={amountWanted} 
-          onChange={e => {
-            const val = e.target.value;
-            setAmountWanted(val === '' ? '' : val.replace(/^0+(?=\d)/, ''));
-          }} 
-          className="w-full p-3 border border-line rounded bg-white outline-none focus:border-gold transition-colors" step="10000" min="0" placeholder="e.g. 100000" 
-        />
-        {amountWanted !== '' && (
-          <p className="text-xs text-forest mt-1 font-medium">₹ {Number(amountWanted).toLocaleString('en-IN')}</p>
-        )}
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-medium mb-1">Amount (Rs)</label>
+          <input 
+            type="number" 
+            value={amountWanted} 
+            onChange={e => {
+              const val = e.target.value;
+              setAmountWanted(val === '' ? '' : val.replace(/^0+(?=\d)/, ''));
+            }} 
+            className="w-full p-3 border border-line rounded bg-white outline-none focus:border-gold transition-colors" step="10000" min="0" placeholder="100000" 
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium mb-1">Your Age</label>
+          <input 
+            type="number" 
+            value={age} 
+            onChange={e => setAge(e.target.value)} 
+            className="w-full p-3 border border-line rounded bg-white outline-none focus:border-gold transition-colors" step="1" min="18" placeholder="e.g. 35" 
+          />
+        </div>
       </div>
-
-      <div>
-        <label className="block text-sm font-medium mb-1">Preferred Tenure (Months)</label>
-        <select value={tenure} onChange={e => setTenure(Number(e.target.value))} className="w-full p-3 border border-line rounded bg-white outline-none focus:border-gold transition-colors">
-          <option value="12">1 Year (12 mo)</option>
-          <option value="24">2 Years (24 mo)</option>
-          <option value="36">3 Years (36 mo)</option>
-          <option value="48">4 Years (48 mo)</option>
-          <option value="60">5 Years (60 mo)</option>
-          <option value="120">10 Years (LAP/Home only)</option>
-        </select>
-      </div>
+      {amountWanted !== '' && (
+          <p className="text-xs text-forest mt-1 font-medium text-right">₹ {Number(amountWanted).toLocaleString('en-IN')}</p>
+      )}
 
       <button onClick={() => setStep(2)} className="w-full bg-ink text-white p-4 rounded flex justify-between items-center hover:bg-ink/90 transition-colors">
         <span className="font-medium">Next: Your Income</span>
@@ -107,6 +128,7 @@ export default function App() {
 
   const renderStep2 = () => (
     <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500">
+      {renderProgressBar()}
       <div className="flex items-center space-x-3 border-b border-line pb-2">
         <button onClick={() => setStep(1)} className="p-1 hover:bg-black/5 rounded"><ArrowLeft size={20} /></button>
         <h2 className="text-2xl font-serif text-ink">Step 2: Income</h2>
@@ -147,6 +169,22 @@ export default function App() {
       </div>
 
       <div>
+        <label className="block text-sm font-medium mb-1">Co-Applicant / Spouse Income (Optional)</label>
+        <input 
+          type="number" 
+          value={coApplicantIncome} 
+          onChange={e => {
+            const val = e.target.value;
+            setCoApplicantIncome(val === '' ? '' : val.replace(/^0+(?=\d)/, ''));
+          }} 
+          className="w-full p-3 border border-line rounded bg-white outline-none focus:border-gold transition-colors" step="1000" min="0" placeholder="e.g. 30000" 
+        />
+        {coApplicantIncome !== '' && (
+          <p className="text-xs text-forest mt-1 font-medium">₹ {Number(coApplicantIncome).toLocaleString('en-IN')}</p>
+        )}
+      </div>
+
+      <div>
         <label className="block text-sm font-medium mb-1">Years in current job/business</label>
         <input type="number" value={yearsInIncome} onChange={e => setYearsInIncome(e.target.value)} className="w-full p-3 border border-line rounded bg-white outline-none focus:border-gold transition-colors" min="0" step="1" placeholder="e.g. 3" />
       </div>
@@ -179,6 +217,7 @@ export default function App() {
 
   const renderStep3 = () => (
     <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500">
+      {renderProgressBar()}
       <div className="flex items-center space-x-3 border-b border-line pb-2">
         <button onClick={() => setStep(2)} className="p-1 hover:bg-black/5 rounded"><ArrowLeft size={20} /></button>
         <h2 className="text-2xl font-serif text-ink">Step 3: Obligations & Profile</h2>
@@ -187,7 +226,7 @@ export default function App() {
       <div>
         <label className="block text-sm font-medium mb-1">Total Existing EMIs per month (Rs)</label>
         <p className="text-xs text-ink/60 mb-2">Leave blank if you have no existing loans.</p>
-        <input type="number" value={existingEmi} onChange={e => setExistingEmi(e.target.value === '' ? '' : Number(e.target.value.replace(/^0+/, '')))} className="w-full p-3 border border-line rounded bg-white outline-none focus:border-gold transition-colors" step="500" min="0" placeholder="e.g. 5000" />
+        <input type="number" value={existingEmi} onChange={e => setExistingEmi(e.target.value === '' ? '' : e.target.value.replace(/^0+/, ''))} className="w-full p-3 border border-line rounded bg-white outline-none focus:border-gold transition-colors" step="500" min="0" placeholder="e.g. 5000" />
         {existingEmi !== '' && Number(existingEmi) > 0 && (
           <p className="text-xs text-forest mt-1 font-medium">₹ {Number(existingEmi).toLocaleString('en-IN')}</p>
         )}
@@ -216,7 +255,7 @@ export default function App() {
           <input type="number" value={savingsMonths} onChange={e => setSavingsMonths(e.target.value === '' ? '' : Number(e.target.value))} className="w-full p-3 border border-line rounded bg-white outline-none focus:border-gold transition-colors" min="0" step="1" placeholder="Optional" />
         </div>
         <div>
-          <label className="block text-sm font-medium mb-1">Credit Score</label>
+          <label className="block text-sm font-medium mb-1">Credit History</label>
           <p className="text-xs text-ink/60 mb-2">e.g. CIBIL (300-900)</p>
           <select value={creditStatus} onChange={e => setCreditStatus(e.target.value as any)} className="w-full p-3 border border-line rounded bg-white outline-none focus:border-gold transition-colors mb-2">
             <option value="unknown">I don't know my score</option>
@@ -243,6 +282,18 @@ export default function App() {
             )}
           </div>
         )}
+      </div>
+
+      <div className="pt-4 border-t border-line">
+        <label className="block text-sm font-medium mb-1">Preferred Loan Tenure (Months)</label>
+        <select value={tenure} onChange={e => setTenure(Number(e.target.value))} className="w-full p-3 border border-line rounded bg-white outline-none focus:border-gold transition-colors">
+          <option value="12">1 Year (12 mo)</option>
+          <option value="24">2 Years (24 mo)</option>
+          <option value="36">3 Years (36 mo)</option>
+          <option value="48">4 Years (48 mo)</option>
+          <option value="60">5 Years (60 mo)</option>
+          {ownsProperty && <option value="120">10 Years (LAP/Home only)</option>}
+        </select>
       </div>
 
       <button onClick={handleCalculate} className="w-full bg-forest text-white p-4 rounded flex justify-center items-center hover:bg-forest/90 transition-colors">
@@ -273,14 +324,14 @@ export default function App() {
         {/* CONSEQUENCES OF SILENCE */}
         {result.consequences.length > 0 && (
           <div className="bg-paper border border-gold/30 rounded p-4 space-y-3">
-            <h4 className="flex items-center space-x-2 font-medium text-gold"><Info size={18} /> <span>The Cost of Missing Information</span></h4>
+            <h4 className="flex items-center space-x-2 font-medium text-gold"><Info size={18} /> <span>The Details</span></h4>
             <ul className="list-disc pl-5 space-y-2 text-sm text-ink/70">
               {result.consequences.map((c: string, i: number) => <li key={i}>{c}</li>)}
             </ul>
           </div>
         )}
 
-        {/* DON'T BORROW FALLBACK CARD (FIX #4) */}
+        {/* DON'T BORROW FALLBACK CARD */}
         {result.verdict === 'dont_borrow' && (
            <div className="bg-brick/10 border border-brick/20 rounded p-6 mt-6">
              <h4 className="text-brick font-medium uppercase tracking-wider text-sm mb-3">Path Forward</h4>
@@ -313,7 +364,12 @@ export default function App() {
             <div className="border border-line rounded overflow-hidden">
               <div className="bg-paper p-3 border-b border-line flex justify-between items-center">
                 <span className="font-medium text-sm">Product Route</span>
-                <span className="font-serif font-semibold text-right">{result.product_route}</span>
+                <div className="text-right">
+                  <span className="font-serif font-semibold block">{result.product_route}</span>
+                  {result.product_route !== result.product_requested && (
+                    <span className="text-xs text-ink/60">You requested: {result.product_requested}</span>
+                  )}
+                </div>
               </div>
               <div className="bg-white p-3 border-b border-line flex justify-between items-center">
                 <span className="font-medium text-sm">Fair Interest Rate</span>
