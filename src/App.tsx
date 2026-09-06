@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { runAssessment, AssessmentAnswers } from './rules';
-import { ArrowRight, AlertTriangle, ShieldCheck, CheckCircle2, ChevronRight, Calculator, AlertCircle, FileText, Banknote } from 'lucide-react';
+import { ArrowRight, ArrowLeft, AlertTriangle, ShieldCheck, CheckCircle2, ChevronRight, Calculator, AlertCircle, FileText, Banknote } from 'lucide-react';
 
 function App() {
   const [step, setStep] = useState(1);
@@ -455,7 +455,18 @@ function App() {
             {step === 4 && renderResults()}
 
             {step < 4 && (
-              <div className="mt-10 pt-6 border-t border-slate-100 flex justify-end">
+              <div className="mt-10 pt-6 border-t border-slate-100 flex justify-between">
+                {step > 1 ? (
+                  <button
+                    onClick={() => setStep(step - 1)}
+                    className="flex items-center gap-2 text-slate-600 hover:text-slate-900 px-6 py-3.5 rounded-xl font-medium transition-all hover:bg-slate-100 active:scale-[0.98]"
+                  >
+                    <ArrowLeft className="w-4 h-4" />
+                    Back
+                  </button>
+                ) : (
+                  <div></div>
+                )}
                 <button
                   onClick={handleNext}
                   className="flex items-center gap-2 bg-slate-900 hover:bg-slate-800 text-white px-8 py-3.5 rounded-xl font-medium transition-all shadow-md hover:shadow-lg active:scale-[0.98]"
