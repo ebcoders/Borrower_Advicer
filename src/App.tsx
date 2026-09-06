@@ -462,6 +462,25 @@ function App() {
                       <p className="text-red-400 text-xs mt-2 font-medium">WARNING: You fail the stress test. Reconsider borrowing this much.</p>
                     )}
                   </div>
+
+                  {result.tenure_tradeoff && result.tenure_tradeoff.length > 0 && (
+                    <div className="bg-white/10 rounded-xl p-5 border border-white/10">
+                      <p className="text-indigo-200 text-sm font-medium uppercase tracking-wider mb-1">Tenure Trade-Off</p>
+                      <p className="text-xs text-indigo-300 mb-3">Shorter tenure = higher EMI, less total interest. Longer tenure = lower EMI, more total interest.</p>
+                      <div className="space-y-2">
+                        {result.tenure_tradeoff.map((t, i) => (
+                          <div key={i} className={`flex items-center justify-between text-sm p-3 rounded-lg ${t.within_safe_ceiling ? 'bg-white/5' : 'bg-red-500/10 border border-red-500/20'}`}>
+                            <span className="font-medium">{(t.months / 12).toFixed(1)}yr ({t.months}mo)</span>
+                            <span>EMI ₹{t.emi.toLocaleString('en-IN')}</span>
+                            <span className="text-indigo-300">Interest ₹{t.total_interest.toLocaleString('en-IN')}</span>
+                          </div>
+                        ))}
+                      </div>
+                      {result.tenure_tradeoff.some(t => !t.within_safe_ceiling) && (
+                        <p className="text-red-300 text-xs mt-2">Rows in red exceed your safe EMI ceiling — a longer tenure may be required to stay within it.</p>
+                      )}
+                    </div>
+                  )}
                   
                   <div className="bg-white/10 rounded-xl p-5 border border-white/10">
                     <p className="text-sm font-medium text-indigo-200 mb-3 uppercase tracking-wider">Ask The Lender For:</p>

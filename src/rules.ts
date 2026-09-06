@@ -214,12 +214,10 @@ export function runAssessment(answers: AssessmentAnswers) {
   
   // Age & Tenure Check
   let effectiveTenure = answers.tenure_months;
-  if (answers.age) {
-    const maxTenure = Math.max(12, (MAX_RETIREMENT_AGE - answers.age) * 12);
-    if (effectiveTenure > maxTenure) {
-      effectiveTenure = maxTenure;
-      consequences.push(`Your requested tenure was reduced to ${maxTenure} months to ensure the loan is paid off by the retirement age of ${MAX_RETIREMENT_AGE}.`);
-    }
+  const maxTenure = answers.age ? Math.max(12, (MAX_RETIREMENT_AGE - answers.age) * 12) : Infinity;
+  if (answers.age && effectiveTenure > maxTenure) {
+    effectiveTenure = maxTenure;
+    consequences.push(`Your requested tenure was reduced to ${maxTenure} months to ensure the loan is paid off by the retirement age of ${MAX_RETIREMENT_AGE}.`);
   }
 
   // 1. Income
@@ -328,6 +326,29 @@ export function runAssessment(answers: AssessmentAnswers) {
   const stressedEmiOnProposed = emi(proposedLoan, stressedRate, effectiveTenure);
   const remainingUnderStress = stressedIncome - actualExpenses - existingEmi - stressedEmiOnProposed;
 
+  // TENURE TRADE-OFF (Output 4 requirement: "a monthly ceiling... with the tenure trade-off shown")
+  // Shows the same recommended principal at a shorter and longer tenure so the borrower can see
+  // the EMI-vs-total-interest lever, bounded by the retirement-age tenure cap.
+  let tenure_tradeoff: { months: number; emi: number; total_interest: number; within_safe_ceiling: boolean }[] = [];
+  if (proposedLoan > 0) {
+    const candidateMonths = Array.from(new Set([
+      Math.max(12, effectiveTenure - 24),
+      effectiveTenure,
+      Math.min(maxTenure, effectiveTenure + 24)
+    ])).sort((a, b) => a - b);
+
+    tenure_tradeoff = candidateMonths.map((months) => {
+      const emiAtTenure = emi(proposedLoan, avgRate, months);
+      const totalInterest = (emiAtTenure * months) - proposedLoan;
+      return {
+        months,
+        emi: Math.round(emiAtTenure),
+        total_interest: Math.round(totalInterest),
+        within_safe_ceiling: emiAtTenure <= safeAvailableEmi
+      };
+    });
+  }
+
   const math_breakdown = {
     assessed_income: assessedIncome,
     actual_expenses: actualExpenses,
@@ -354,6 +375,7 @@ export function runAssessment(answers: AssessmentAnswers) {
     consequences,
     score,
     math_breakdown,
+    tenure_tradeoff,
     stress_test: {
       text: `Stress Test: If income drops 10% and rates rise 2%, your EMI becomes ₹${Math.round(stressedEmiOnProposed).toLocaleString('en-IN')}. You will have ₹${Math.round(remainingUnderStress).toLocaleString('en-IN')} left over for living expenses.`,
       holds: remainingUnderStress > 0
