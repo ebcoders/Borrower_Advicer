@@ -42,9 +42,7 @@ This document outlines every mathematical rule, threshold, band, and assumption 
 | Scenario / Product | Rate Band | Why (Reasoning) |
 | :--- | :--- | :--- |
 | **LAP (Loan Against Property)** | 9.0% - 11.5% | Secured by hard asset (LTV assumed safe). *User must explicitly consent to pledge property.* |
-| **Home Loan** | 8.5% - 9.5% | Standard collateralized mortgage rates. |
 | **Two-Wheeler / Commercial** | 12.0% - 16.0% | Hypothecated against the vehicle. Much cheaper than unsecured business loans. |
-| **Gold Loan** | 10.0% - 14.0% | Liquid collateral. Extremely safe for lenders, good for informal borrowers. |
 | **Personal Loan (Prime)** | 10.5% - 12.5% | Unsecured, but borrower has 750+ CIBIL and salaried stability. |
 | **Personal Loan (Standard)** | 13.0% - 17.0% | Unsecured, average credit profile or unknown score (priced defensively). |
 | **Unsecured Business / Micro** | 18.0% - 24.0% | High-risk, informal/self-employed with no collateral. |

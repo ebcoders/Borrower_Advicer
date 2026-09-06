@@ -95,7 +95,7 @@ function App() {
             <option value="business">Business Working Capital (Productive)</option>
             <option value="vehicle_for_income">Commercial Vehicle / 2-Wheeler (Productive)</option>
             <option value="home_improvement">Home Improvement (Productive)</option>
-            <option value="wedding">Wedding (Risky)</option>
+            <option value="wedding">Wedding</option>
             <option value="gambling">Trading / Speculation (Risky)</option>
           </select>
         </div>
@@ -106,7 +106,6 @@ function App() {
             <option value="personal">Personal Loan (Unsecured)</option>
             <option value="business">Business Loan (Unsecured)</option>
             <option value="lap">Loan Against Property (Secured)</option>
-            <option value="gold">Gold Loan (Secured)</option>
             <option value="auto">Vehicle Loan (Secured)</option>
           </select>
         </div>
@@ -348,7 +347,7 @@ function App() {
                   <div>
                     <p className="text-indigo-200 text-sm font-medium uppercase tracking-wider mb-1">Target Product</p>
                     <p className="text-2xl font-bold text-white">{result.product_route}</p>
-                    {result.product_route.toLowerCase() !== result.product_requested.toLowerCase() && (
+                    {result.was_rerouted && (
                       <p className="text-xs text-amber-300 mt-1">
                         (We routed you away from a {result.product_requested} loan because this product offers better terms for your profile).
                       </p>

@@ -6,13 +6,13 @@ The following run-throughs demonstrate how the Borrower Copilot mathematically h
 *   **Brief Data:** ₹1.1L/mo salaried, 5 years at job, ₹28k expenses, ₹14k existing EMI. Wants ₹8L for a wedding. 780 Credit Score. 
 *   **Assumptions Made:** 60-month tenure. We gave her a "Quoted Rate" of 14% to demonstrate the negotiation feature.
 *   **Engine Reaction:** 
-    *   **Score:** 88.6/100 (Salaried +15, >5 years +10, Savings +10, but Wedding Purpose -20).
+    *   **Score:** 100/100 (Salaried +15, >5 years +10, Savings +10). (Wedding purpose now neutral 0 points).
     *   **Routing:** Personal Loan (Prime).
-    *   **Dual-Ceiling:** The bank would sanction up to ₹19.7L (FOIR limit). However, her Safe Carry limit is slightly lower (₹14.0L) based on preserving her cashflow buffers under a stress test. Both easily clear her requested ₹8L.
+    *   **Dual-Ceiling:** The bank would sanction up to ₹19.8L (FOIR limit). However, her Safe Carry limit is slightly lower (₹14.0L) based on preserving her cashflow buffers under a stress test. Both easily clear her requested ₹8L.
 *   **Verdict:** `borrow` (Safe to Borrow)
 *   **Negotiation Card:** 
-    *   "The lender quoted you 14%. This is higher than our fair band (10.5% - 11.7%). You are overpaying and should negotiate."
-    *   Recommends walking away from a rate higher than 12.7%.
+    *   "The lender quoted you 14%. This is higher than our fair band (10.5% - 11.5%). You are overpaying and should negotiate."
+    *   Recommends walking away from a rate higher than 12.5%.
 
 ## 2. Ravi (Asset Rich, Missing Info, Co-Applicant)
 *   **Brief Data:** ₹40k-80k income (modeled as ₹60k midpoint). Wife earns ₹18k (salaried teaching). ITR shows ₹4.2L. Owns a ₹45L house unencumbered. Never taken a formal loan (NTC). Wants ₹15L.
@@ -29,8 +29,8 @@ The following run-throughs demonstrate how the Borrower Copilot mathematically h
 *   **Brief Data:** ₹28k/mo (informal). Wants an electric scooter (₹1.5L) to double her delivery runs. Currently has ₹35k outstanding across 3 loan apps. No formal credit score.
 *   **Assumptions Made:** 24-month tenure (standard for 2-wheelers). Modeled her existing app loans as a ₹6,354 monthly EMI burden. Modeled her 30%+ app loans via the `has_predatory_loans` flag.
 *   **Engine Reaction:**
-    *   **Routing (Domain Fix):** Because her purpose is "Commercial Vehicle", the engine correctly routes her to a secured **Two-Wheeler** loan band (15.3-16.0%), rather than hitting her with a 24% unsecured business rate.
-    *   **Score Crash:** Her score drops to ~4.6. Why? 100% informal variable income, no savings (-10), severe DTI penalty, and the massive predatory loan penalty (-30). 
+    *   **Routing (Domain Fix):** Because her purpose is "Commercial Vehicle", the engine correctly routes her to a secured **Two-Wheeler** loan band (15.5-16.0%), rather than hitting her with a 24% unsecured business rate.
+    *   **Score Crash:** Her score drops to 0. Why? 100% informal variable income, no savings (-10), severe DTI penalty, the massive predatory loan penalty (-30), and the missed payment (-50). 
     *   **Dual-Ceiling:** A bank might theoretically sanction her for a tiny amount, but her Safe Carry limit is **₹0**. After her current app loan EMIs (₹6.3k), living expenses (₹14k), and the strict minimum living buffer floor, she has mathematically negative cash flow under a 10% income stress test.
 *   **Verdict:** `dont_borrow` (Do Not Borrow)
-*   **Consequence Log:** "Existing high-interest (30%+) app loans are a severe red flag indicating a debt trap." "Your risk profile indicates you may struggle to repay this loan, likely due to existing debt levels, volatile income, or predatory app loans."
+*   **Consequence Log:** "You missed a payment in the last 3 months. Taking new debt to cover old debt almost always leads to a trap. Stay current for 3 months before borrowing." "Existing high-interest (30%+) app loans are a severe red flag indicating a debt trap."

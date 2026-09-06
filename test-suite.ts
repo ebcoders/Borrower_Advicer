@@ -38,7 +38,7 @@ const ravi: AssessmentAnswers = {
   co_applicant_income: 18000, // Wife's teaching salary
   co_applicant_salaried: true, // IMPORTANT FIX: Do not haircut the wife's salary
   variable_income_pct: 60, // Assumed volatility of small business
-  years_in_income: 10,
+  years_in_income: 14,
   itr_income: 420000, // 35,000/mo
   expenses: null, // Left blank to trigger silence penalty
   existing_emi: null, // Left blank to trigger silence penalty
@@ -71,7 +71,7 @@ const anita: AssessmentAnswers = {
   has_predatory_loans: true, // Trigger 30%+ app loan penalty
   credit_status: 'unknown', // Informal, no formal credit score mentioned
   credit_score: null,
-  missed_payments: false, 
+  missed_payments: true, 
   savings_months: 0, // Modeled as no savings
   owns_property: false,
   pledge_property: false,

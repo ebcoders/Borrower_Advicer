@@ -1,5 +1,5 @@
 export const PRODUCTIVE_PURPOSES = new Set(["business", "vehicle_for_income", "education", "medical", "home_improvement"]);
-export const RISKY_PURPOSES = new Set(["gambling", "speculative", "wedding"]);
+export const RISKY_PURPOSES = new Set(["gambling", "speculative"]);
 
 // LTV, FOIR & Smoothing Constants
 export const LAP_LTV_CAP = 0.60;
@@ -13,9 +13,7 @@ export const MAX_RETIREMENT_AGE = 65;
 
 export const RATE_BANDS: Record<string, [number, number]> = {
   lap: [9.0, 11.5],
-  home_loan: [8.5, 9.5],
   two_wheeler: [12.0, 16.0],
-  gold_loan: [10.0, 14.0],
   personal_prime: [10.5, 12.5],
   personal_standard: [13.0, 17.0],
   unsecured_business: [18.0, 24.0]
@@ -147,13 +145,13 @@ function determineRouting(answers: AssessmentAnswers, score: number, consequence
 
   const isLapEligible = answers.owns_property && answers.pledge_property && answers.property_value && answers.property_value > answers.amount_wanted * 1.5;
 
-  // Domain Gap Fix: Two wheeler routing
-  if (answers.purpose === 'vehicle_for_income') {
-    product = "Two-Wheeler / Commercial Vehicle";
-    baseBand = RATE_BANDS.two_wheeler;
-  } else if (isLapEligible) {
+  // Domain Gap Fix: LAP vs Two wheeler routing
+  if (isLapEligible) {
     product = "Loan Against Property (LAP)";
     baseBand = RATE_BANDS.lap;
+  } else if (answers.purpose === 'vehicle_for_income') {
+    product = "Two-Wheeler / Commercial Vehicle";
+    baseBand = RATE_BANDS.two_wheeler;
   } else if (answers.income_type === 'salaried') {
     if (answers.credit_status === 'known' && answers.credit_score !== null) {
       if (answers.credit_score >= 750) {
@@ -196,8 +194,16 @@ function determineRouting(answers: AssessmentAnswers, score: number, consequence
   const rateSpread = maxRate - minRate;
   let mappedRate = maxRate - ((score / 100) * rateSpread);
   
+  let was_rerouted = true;
+  const req = answers.loan_type_wanted;
+  if (req === 'personal' && product.includes("Personal Loan")) was_rerouted = false;
+  if (req === 'business' && product.includes("Business")) was_rerouted = false;
+  if (req === 'lap' && product === "Loan Against Property (LAP)") was_rerouted = false;
+  if (req === 'auto' && product === "Two-Wheeler / Commercial Vehicle") was_rerouted = false;
+  
   return {
     product,
+    was_rerouted,
     finalRateMin: Math.max(minRate, mappedRate - RATE_SPREAD_LOWER_PAD),
     finalRateMax: Math.min(maxRate + unknownScorePenalty, mappedRate + RATE_SPREAD_UPPER_PAD + unknownScorePenalty)
   };
@@ -242,7 +248,7 @@ export function runAssessment(answers: AssessmentAnswers) {
 
   // 3. Score & Routing
   const score = computeScore(answers, assessedIncome, consequences);
-  const { product, finalRateMin, finalRateMax } = determineRouting(answers, score, consequences);
+  const { product, was_rerouted, finalRateMin, finalRateMax } = determineRouting(answers, score, consequences);
   const avgRate = (finalRateMin + finalRateMax) / 2;
 
   // 4. CEILINGS
@@ -327,6 +333,7 @@ export function runAssessment(answers: AssessmentAnswers) {
     verdict_reason: reason,
     product_route: product,
     product_requested: answers.loan_type_wanted,
+    was_rerouted,
     fair_rate_band: [finalRateMin, finalRateMax],
     quoted_rate: answers.quoted_rate, // Passthrough
     apr_band: [aprMin, aprMax],
