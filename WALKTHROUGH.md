@@ -1,44 +1,40 @@
-# The 5-Minute Interview Script
+
 
 **Goal:** Explain the architecture of Borrower Copilot, specifically highlighting how it acts as a fiduciary advocate rather than a lead-gen tool.
 
 ## 1. The Core Architecture (1 min)
 
-"Borrower Copilot is a client-side React application built specifically for the Indian credit market. It's totally private—no data is sent to a server. 
+"Borrower Copilot is a client-side React application for the Indian credit market. It's totally private — no data leaves the browser, no login, no bureau pull.
 
-The engine uses a deterministic 100-point scoring system. However, its real value is in the 'Dual Ceiling Architecture.' Lead-generation sites calculate a single number (FOIR) to figure out what a bank will legally sell you. The Copilot calculates two numbers:
-1. What the bank will sanction you (FOIR).
-2. What you can actually survive (Cashflow minus expenses, existing debt, and an absolute minimum living floor buffer)."
+The engine uses a deterministic 100-point scoring system. Its real value is the 'Dual Ceiling Architecture': lead-gen sites calculate one FOIR number to show what a bank will legally sell you. The Copilot calculates two:
+
+1. What the bank will sanction (FOIR-based).
+2. What the borrower can actually survive — cashflow minus expenses, existing debt, an absolute minimum living-floor buffer, and a stress test."
 
 ## 2. The Stress Test & Silence Widening (2 min)
 
-"The app doesn't just calculate your limit under sunny-day conditions. 
+"The app runs every recommendation through a stress test: income drops 10%, rates rise 2%. If the resulting EMI breaches the living buffer, the app says 'Borrow Less' or 'Don't Borrow.'
 
-If you say you want ₹5 Lakhs, it runs a macroeconomic stress test. It drops your income by 10% and spikes the interest rate by 2%. If that resulting EMI breaches your living buffer, the app tells you to 'Borrow Less.'
-
-More importantly, it handles **silence**. If a user like Ravi leaves his existing EMIs blank, standard calculators just assume `0` and tell him he can afford a massive loan. The Copilot assumes `0`, but aggressively widens the safety output band by 20% and fires a warning card saying, *'We assumed zero debt because you didn't tell us, but if you have it, this number is dangerously wrong.'* Confidence widens with silence."
+It also handles silence carefully. Every assessment carries a baseline ±5% uncertainty band, even a fully answered one — the model never claims false precision. Then, each piece of missing information *adds* to that band: missing ITR adds 15%, missing expenses adds 10%, missing existing EMIs adds 20%. These stack. A borrower like Ravi, who leaves both expenses and EMIs blank, ends up with a total ±35% band — 5% base, plus 10%, plus 20% — not a smaller number, because each gap is a genuinely separate source of uncertainty."
 
 ## 3. Product Judgments & The Fiduciary Approach (2 min)
 
-"A true financial advocate educates, it doesn't force. Notice that the engine largely ignores the initial 'What loan type did you want?' dropdown. A fiduciary engine routes on substance (collateral, purpose, income type), not on the borrower's uneducated guess. 
+"The engine largely ignores the borrower's own 'what loan type did you want?' guess and routes on substance instead — collateral, purpose, and income type.
 
-For example, if you declare that you own unencumbered property, the Copilot asks you: *'Are you willing to pledge this property as collateral to lower your rate?'* 
-* If you say yes, it routes you to a Loan Against Property (LAP) at ~9%. 
-* If you say no, it routes you to an unsecured loan at ~14%, but adds a 'Smart Nudge' to the log saying, *'You kept your home safe, but you are overpaying by 5%.'* 
-This educates the borrower on their leverage without forcing them to risk foreclosure for a slightly cheaper loan.
+If someone owns unencumbered property and is willing to pledge it, they're only routed to a Loan Against Property if that property is worth at least 1.5 times what they're asking for — otherwise the collateral isn't meaningful enough to change the underwriting, and they stay on an unsecured or vehicle-specific band instead.
 
-Similarly, we protect stable co-applicants. If Ravi is a volatile gig worker but his wife is a salaried teacher, we only apply the volatility haircut to his income. We preserve 100% of her salary, accurately reflecting the household's actual risk profile."
+If they own property and choose *not* to pledge it, the engine logs: *'You chose not to pledge your property. That keeps your home safe, but you are getting [product] rates. Pledging it as collateral could lower your rate to ~10.5%.'* — an honest trade-off, not a push toward risk.
 
-## 4. What I Would Build Next, and What I Would Cut
+We also protect stable co-applicants: if one partner is a volatile gig worker but the other is a salaried teacher, only the volatile partner's income gets haircut. The salaried partner's income is preserved at 100%, reflecting the household's real risk profile."
 
-"If we were taking this to production, here are my immediate product decisions:
+## 4. The Tenure Trade-Off
 
-**Build Next: Consented Account Aggregator (AA) Pull**
-Currently, we rely on user self-reporting for income and expenses. Next, I would integrate a quick, consented bureau/AA pull via India's Account Aggregator framework. This replaces manual entry, immediately fetching true cash flow, bouncing cheques, and active EMIs to run the math flawlessly. We'd also build a multi-lender quote comparison API to pull live rates instead of relying on hardcoded heuristic bands.
+"Beyond the single EMI ceiling, the app shows the same recommended loan amount at three tenures — 2 years shorter, the current choice, and 2 years longer — with EMI and total interest for each, and flags any option that would exceed the borrower's safe EMI ceiling. This lets a borrower see the real lever they're pulling: a shorter tenure saves on total interest but can push the EMI past what's actually safe."
 
-**What I Would Cut: Fine-grained credit scoring logic**
-I spent a lot of time on granular 5-point penalties in the scoring engine (e.g., small bumps for savings months). In practice, it barely moves the needle. A user with predatory app loans fails anyway, and a prime borrower passes anyway. I would cut the granular scoring and move to a simpler 'Stoplight' system (Red/Yellow/Green) based purely on three hard gates: CIBIL Score, DTI, and default history. It reduces code complexity and user confusion."
+## 6. What I'd Build Next, and What I'd Cut
 
-## 5. The Live Demo Handover
+**What I'd build next:**
 
-"All mathematical variables—LTV caps, FOIR limits, haircuts, and rate bands—are declared as named constants at the top of `src/rules.ts`. If you want to see what happens when the RBI tightens FOIR from 50% to 40%, we can change one line of code right now and watch the engine adapt instantly."
+**What I'd cut if I had less time:**
+
+- Broad product coverage beyond what the three brief personas actually exercise — I built more breadth than the scoring rubric asks for ("Not scored: breadth of loan products beyond what the three borrowers need").
